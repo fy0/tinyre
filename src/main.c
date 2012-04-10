@@ -9,6 +9,21 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
+#include <assert.h>
+
+typedef struct tre_group {
+    char* name;
+    int start,len;
+    char* s;
+    int groupnum;
+} tre_group;
+
+typedef struct tre_Match {
+    int groupnum;
+    tre_group* group;
+} tre_Match;
+
+//#define match_init(__m) memset(__m,0,sizeof(tre_Match))
 
 static char*
 strndup (const char *s, size_t n)
@@ -63,31 +78,60 @@ match(char re[2],char c)
 
 #define s_foreach(__s,__p) for (__p = __s;*__p;__p++)
 
-/* 第二原型:对原函数进行拆分，一个专门进行分组，一个进行单字匹配
+/* 第三原型: 在第二原型基础上拥有了一个分组（即括号）的实现
  * 这里会处理的东西：
  * + 和 ? 和 * 和 ^ 和 $
  */
-char *tre_match(const char* re,const char* s)
+tre_Match* tre_match(const char* re,const char* s)
 {
+    int groupnum = 1;
+    tre_group* groups;
     char _r[2] = {0,0};
     char _s;
     const char *p;
     const char *start=NULL;
+    groups = malloc(sizeof(tre_group)*5);
 
     if (re[0]=='^') re++;
     s_foreach(re,p) {
         switch (*p) {
+            case '('  :
+                {
+                    setstart();
+                    const char *p1=p+1,*p2;
+                    int count = 0;
+
+                    s_foreach (p1,p2) {
+                        if (*p2=='(') count++;
+                        else if (*p2==')') {
+                            // 此时 p2 指向右括号
+                            if (!count) break;
+                            count--;
+                        }
+                    }
+                    tre_Match *ret=tre_match(strndup(p1,p2-p1),s);
+                    for (int i=0;i<ret->groupnum;i++) {
+                        if (groupnum>=5)
+                            assert(realloc(groups,sizeof(tre_group)*groupnum));
+                        groups[groupnum] = ret->group[i];
+                        groupnum ++;
+                    }
+                    if (!ret) return 0;
+                    p = p2;
+                    s+=ret->group[0].len-1;
+                    break;
+                }
             case '?'  : 
                 {
                     setstart();
-                    if (p>re+1||*(p-2)=='\\') {
+                    if (p>re+1&&*(p-2)=='\\') {
                         _r[0]='\\';
                         _r[1]=*(p-1);
                     } else _r[0]=*(p-1);
                     _s=*s;
                     if (!match(_r,_s)) s--;
                     break;
-                }            
+                }
             case '*'  : case '+'  : 
                 {
                     setstart();
@@ -110,11 +154,11 @@ char *tre_match(const char* re,const char* s)
                     _r[0]='\\';
                     _r[1]=*p;
                     _s=*s;
-                    if (!match(_r,_s)) return NULL;
+                    if (!match(_r,_s)) return 0;
                     break;
                 }
             case '$'  : 
-                if (!*(s+1)) return NULL;break;
+                if (!*(s+1)) return 0;break;
             default   : 
                 {
                     setstart();
@@ -122,20 +166,28 @@ char *tre_match(const char* re,const char* s)
                     _r[0]=*p;
                     _s=*s;
                     if (!match(_r,_s))
-                        return NULL;
+                        return 0;
                 }
         }
         s++;
     }
     if (!start) return NULL;
-    return strndup(start,s-start);
+    tre_Match* result = malloc(sizeof(tre_Match));
+
+    result->groupnum = groupnum;
+    result->group = groups;
+    result->group[0].name = NULL;
+    result->group[0].start = 0;
+    result->group[0].len = s-start;
+    result->group[0].s = strndup(start,s-start);
+    return result;
 }
 
 int main(int argc,char* argv[])
 {
-    char *ret;
-    if (ret=tre_match("ab*c","abbbcd")) 
-        printf("匹配成功！ %s\n",ret);
+    tre_Match* ret;
+    if (ret=tre_match("a(b?c+)(d)d","abcccddd")) 
+        printf("匹配成功！ %s\n",ret->group[0].s);
     else printf("匹配失败！\n");
     return 0;
 }
