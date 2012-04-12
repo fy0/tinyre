@@ -10,7 +10,7 @@ obj = ../obj
 VPATH+=$(bin)
 VPATH+=$(obj)
 
-CFLAGS = -lm -std=c99
+CFLAGS = -lm -std=c99 -g
 # LDFLAGS = 
 
 src     = $(wildcard *.c)
