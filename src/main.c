@@ -2,16 +2,61 @@
  * start : 2012-4-8 09:57
  * tiny re
  * 微型python风格正则表达式库
+ * 第六原型a (DFA)
  */
 
 #include <stdio.h>
-#include <ctype.h>
+#include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
-#include <stdlib.h>
 #include <assert.h>
+#include <ctype.h>
 
-#define s_foreach(__s,__p) for (__p = __s;*__p;__p++)
+/* 关于 from 和 prev：
+ * from 一般只用于并联情况，
+ * 若这个值不存在，则视为 from 与 prev 等价
+ */
+
+typedef struct node {
+    char re[2];
+    /* 跳转而来的前一节点 */
+    struct node *from;
+    /* 逻辑关系上的前一节点 */
+    struct node *prev;
+    /* 成功后的后续节点 */
+    struct node *next;
+    /* 失败后转向的节点 */
+    struct node *failed;
+} tre_node;
+
+/* 内部匹配使用的组 */
+typedef struct _tre_group {
+    char* name;
+    tre_node* start;
+    tre_node* end;
+    struct _tre_group *prev;
+    struct _tre_group *next;
+} _tre_group;
+
+/* 返回结果使用的组 */
+typedef struct tre_group {
+    char*name;
+    char*text;
+} tre_group;
+
+/* 编译后的表达式 */
+typedef struct tre_pattern {
+    int groupnum;
+    _tre_group *groups;
+    tre_node *start;
+} tre_pattern;
+
+/* 匹配后返回的结果 */
+typedef struct tre_Match {
+    int groupnum;
+    tre_group* groups;
+} tre_Match;
+
 
 static char*
 strndup (const char *s, size_t n)
@@ -30,287 +75,266 @@ strndup (const char *s, size_t n)
     return (char *) memcpy (result, s, len);
 }
 
-bool dotall =false;
+#define s_foreach(__s,__p) for (__p = __s;*__p;__p++)
 
-typedef struct tre_element {
-    /* 该组所需要匹配的正则语句 */
-    char* re;
-    /* 是否允许拥有不确定性 ? * 后缀 
-     * 当为 true 时进行回溯 (backtracking) */
-    bool flag;
-    /* 无穷匹配？ * 和 + 你们自重 */
-    bool infinite;
-    /* 字节点数目 */
-    int childnum;
-    /* 子节点们 */
-    struct tre_element* childs;
-} tre_element;
+#define _p(x) printf("%s\n",x)
 
-typedef struct tre_group {
-    int start,len;
-} tre_group;
+#define newnode() (tre_node*)calloc(1,sizeof(tre_node))
 
-typedef struct tre_Match {
-    int groupnum;
-    tre_group* group;
-} tre_Match;
+bool dotall = false;
 
-typedef struct tre_regex {
-    //int groupnum;
-    //tre_group* group;
-    int emnum;
-    tre_element* ems;
-} tre_regex;
-
-#define pc(x) printf("_%c",x)
-#define _p(s) printf("%s\n",s)
-
-/* 基本元素匹配
- * 所谓基本元素，就是其表达式只对应一个字符的元素，例如
- * [abcde] a . 这样的东西*/
-static bool
-match_elemlent(tre_element*em,const char*s)
+/* 第六原型 (DFA) 
+ * 这里实现了对 [] () ? + * 的支持 */
+tre_pattern* compile(char*re)
 {
-    char c = *s;
-    char*p = em->re;
-    int re_len = strlen(em->re);
+    tre_pattern *ret = (tre_pattern*)calloc(1,sizeof(tre_pattern));
+    tre_node*start = (tre_node*)calloc(1,sizeof(tre_node));
 
-    if (re_len==1||(re_len==2&&em->re[0]=='\\')) {
+    ret->start = start;
+
+    assert(start);
+    
+    if (strlen(re)==0) {
+        return ret;
+    }
+
+    /* 并行模式，用于[]中的单字 */
+    bool parellelmode = false;
+    char *p;
+    /* 首次指定为头节点，自此以后每次由当前字符处理结束后生成 */
+    tre_node *node = start;
+    /* 这是 group 链表的尾节点 */
+    _tre_group *grouptail = NULL;
+
+    s_foreach(re,p) {
         switch (*p) {
-            case '.' : 
-                if (dotall || *s!='\n') return true;break;
-            case '\\': 
-                {
-                    switch (p[1]) {
-                        case 's': if (isspace(*s)) return true;break;
-                        case 'S': if (!(isspace(*s))) return true;break;
-                        case 'd': if (isdigit(*s)) return true;break;
-                        default : if (p[1]==*s) return true;
+            case '\\':
+                node->re[0] = '\\';
+                node->re[1] = *(++p);
+                if (!parellelmode) {
+                    node->next = newnode();
+                    node->next->prev = node;
+                    node = node->next;
+                } else {
+                    node->failed = newnode();
+                    node->failed->prev = node->prev;
+                    node->failed->from = node;
+                    node = node->failed;
+                }
+                break;
+            case '?' :
+                if (!parellelmode) node->prev->failed = node;
+                else goto __def;
+                break;
+            case '+' :
+                if (!parellelmode) {
+                    *node = *node->prev;
+                    node = node->failed = newnode();
+                } else goto __def;
+                break;
+            case '*' : 
+                if (!parellelmode) {
+                    node->prev->next = node->prev;
+                    node->prev->failed = node;
+                } else goto __def;
+                break;
+            case '|' :
+                if (!grouptail) {
+                    ;
+                } else {
+                    /* 斩断旧有联系 */
+                    /*node->prev->next = NULL;
+                    tre_node* _node = start;
+                    while (_node->failed) _node = _node->failed;
+                    _node->failed = _node;
+                    node->from = _node;
+                    node->prev = NULL;
+                    for (;_node;_node=_node->next)
+                        if (!_node->failed) _node->failed = node;*/
+                }
+                break;
+            case '(' :
+                ret->groupnum++;
+                if (!grouptail)
+                    grouptail = ret->groups = (_tre_group*)calloc(1,sizeof(_tre_group));
+                else {
+                    grouptail->next = (_tre_group*)calloc(1,sizeof(_tre_group));
+                    grouptail->next->prev = grouptail;
+                    grouptail = grouptail->next;
+                }
+                if (*(p+1)=='?') {
+                    if (*(p+2)=='P'&&*(p+3)=='<') {
+                        char*p1 = p+4;
+                        while (*p1!='>') p1++;
+                        if (p1==p+4) {}; // TODO:这里报错
+                        grouptail->name = strndup(p+4,p1-(p+4));
+                        p = p1;
                     }
+                }
+                grouptail->start = node;
+                break;
+            case ')':
+                if (grouptail) {
+                    _tre_group *pg = grouptail;
+                    /* TODO:括号不对齐时这里将会崩溃 */
+                    while (pg->end) pg = pg->prev;
+                    pg->end = node->prev;
+                    break;
+                } else goto __def;
+            case '[' :
+                if (parellelmode) goto __def;
+                parellelmode = true;
+                break;
+            case ']' :
+                if (parellelmode) {
+                    parellelmode = false;
+                    /* 断绝并联关系 */
+                    node->from->failed = NULL;
+                    /* 调整节点指向 */
+                    tre_node* _node = node->from;
+                    node->from = NULL;
+                    if (!_node) break;
+                    do {
+                        _node->next = node;
+                        _node = _node->from;
+                    } while (_node);
                     break;
                 }
-            default  : 
-                if (p[0]==*s) return true;
+            default : __def:
+                node->re[0] = *p;
+                if (!parellelmode) {
+                    node->next = newnode();
+                    node->next->prev = node;
+                    node = node->next;
+                } else {
+                    /* node->next 将在]结束后统一添加 */
+                    node->failed = newnode();
+                    node->failed->prev = node->prev;
+                    node->failed->from = node;
+                    node = node->failed;
+                }
+                break;
         }
-    } else {
-        assert(p[0]=='[');
-        char*p1;
-        s_foreach(p+1,p1)
-            if (*p1==*s) return true;
+    }
+    /* 没有必要的尾节点 */
+    //node->prev->next = NULL;
+    //free(node);
+    return ret;
+}
+
+static bool
+match(tre_node*re,char c)
+{
+    char c1 = re->re[0];
+    char c2 = re->re[1];
+    switch (c1) {
+        case '.' : 
+            if (dotall || c!='\n') return true;
+            break;
+        case '\\' :
+            switch (c2) {
+                case 'd' :
+                    if (isdigit(c)) return true;
+                    break;
+                case 's' :
+                    if (isspace(c)) return true;
+                    break;
+                case 'S' :
+                    if (!(isspace(c))) return true;
+                    break;
+                default  :
+                    if (c2==c) return true;
+            }
+            break;
+        default   :
+            if (c1==c) {
+                return true;
+            }
     }
     return false;
 }
 
-/* 第五原型：从 DFA 转向 NFA
- * 加入语句编译，并会将整个表达式分解成多个元素分别匹配
- * 这里会处理的东西： () 和 . 和 + 和 *
- * 
- * 注意：
- * 此版本无分组的支持，对括号只支持到一重
- */
-tre_regex* compile(char*re)
+tre_Match* tre_match(tre_pattern*re,char*s)
 {
-    tre_regex *ret = malloc(sizeof(tre_regex));
-    /* 直接申请内存长度为最大可能长度 */
-    ret->ems = malloc(sizeof(tre_element)*strlen(re));
-    tre_element* curem = ret->ems;
+    char* start=s;
+    tre_Match *ret = (tre_Match*)calloc(1,sizeof(tre_Match));
+    tre_node *p = re->start;
 
-    char *p;
-    s_foreach(re,p) {
-        switch (*p) {
-            case '?' : case '*' : case '+' :
-                break;
-            case '\\'  :
-                /* 若\的下个字符不存在，报错 */
-                assert(*(p+1));
-                curem->childnum = 0;
-                curem->re = strndup(p,2);
-                /* 检查问号后缀和星号后缀 */
-                if (*(p+2)=='+') {
-                    curem->flag = false;
-                    curem->infinite = false;
-                    curem++;
-                    curem->flag = true;
-                    curem->infinite = true;
-                    curem->childnum = 0;
-                    curem->re = (curem-1)->re;
-                } else  {
-                    curem->flag = (*(p+2)=='?'||*(p+2)=='*') ? true : false;
-                    curem->infinite = ((*(p+2)=='*') ? true : false);
-                }
-                /* 因为这个元素涉及两个字符，故向下传动 */
-                p++;
-                curem++;
-                break;
-            case '('   :
-                {
-                    char*p1;
-                    int imatch=0;
-                    int count=1;
-                    char* last=NULL;
-                    s_foreach (p+1,p1) {
-                        if (*p1=='(') {
-                            imatch++;
-                            last=p1;
-                            count++;
-                        } else if (*p1==')') {
-                            if (!imatch) break;
-                            /* 若括号内内容不为空 */
-                            if (p1!=last+1) {
-                                char* __p = strndup(last,p1-last);
-                                tre_regex *ret = compile(__p);
-                                curem->childnum = ret->emnum;
-                                curem->childs = ret->ems;
-                            }
-                            imatch--;
-                        }
-                    }
-                    /* 若括号不匹配弹错 */
-                    assert(!imatch);
-                    /* 例行分组 */
-                    if (p+1==p1) {
-                        /* 若括号内容为空则跳过 */
-                        p++;
-                        break;
-                    }
-                    curem->re = strndup(p+1,p1-p-1);
-                    if (*(p1+1)=='+') {
-                        curem->flag = false;
-                        curem->infinite = false;
-                        curem++;
-                        *curem = *(curem-1);
-                        curem->flag = true;
-                        curem->infinite = true;
-                    } else {
-                        curem->flag = (*(p1+1)=='?'||*(p1+1)=='*') ? true : false;
-                        curem->infinite = (*(p1+1)=='*') ? true : false;
-                    }
-                    p = p1;
-                    curem++;
-                    break;
-                }
-            /*case '['   :
-                {
-                    break;
-                }*/
-            default    :
-                curem->childnum = 0;
-                curem->re = strndup(p,1);
-                if (*(p+1)=='+') {
-                    curem->flag = false;
-                    curem->infinite = false;
-                    curem++;
-                    curem->childnum = 0;
-                    curem->flag = true;
-                    curem->infinite = true;
-                    curem->re = (curem-1)->re;
-                } else {
-                    curem->flag = (*(p+1)=='?'||*(p+1)=='*') ? true : false;
-                    curem->infinite = (*(p+1)=='*') ? true : false;
-                }
-                curem++;
+    /* 为加速组机制设置的变量 */
+    const char** g_text = NULL;
+    tre_node **g_start = NULL;
+    tre_node **g_end = NULL;
+
+    int groupnum = ret->groupnum = re->groupnum;
+
+    /* 初始化组机制 */
+    if (groupnum) {
+        ret->groups = (tre_group*)calloc(10,sizeof(tre_group));
+        g_start = (tre_node**)calloc(groupnum,sizeof(tre_node*));
+        g_end   = (tre_node**)calloc(groupnum,sizeof(tre_node*));
+        g_text  = (const char**)calloc(groupnum,sizeof(char*));
+        int i = 0;
+        for (_tre_group* pg = re->groups;pg;pg = pg->next) {
+            g_start[i] = pg->start;
+            g_end[i]   = pg->end;
+            if (pg->name) {
+                ret->groups[i+1].name = strndup(pg->name,strlen(pg->name));
+            }
+            i++;
         }
     }
-    ret->emnum = curem - ret->ems;
+
+    while (true) {
+        if (groupnum) {
+            for (int i=0;i<groupnum;i++) {
+                if (g_start[i]) {
+                    if (g_start[i]==p) {
+                        /* 找到组的开头了 */
+                        g_text[i] = s;
+                        g_start[i] = NULL;
+                        /* 若组内只有一个字符 */
+                        if (g_end[i]==p) {
+                            i--;
+                            continue;
+                        }
+                        break;
+                    }
+                } else {
+                    /* 匹配组的末尾 */
+                    if (g_end[i]&&g_end[i]==p) {
+                        /* 找到组的末尾 */
+                        ret->groups[i+1].text = strndup(g_text[i],s-g_text[i]+1);
+                        g_end[i] = NULL;
+                        break;
+                    }
+                }
+            }
+        }
+
+        bool _ret = match(p,*s);
+        if (_ret && p->next) p = p->next;
+        else if (p->failed) {
+            p = p->failed;
+            continue;
+        }
+        else break;
+        if (!*(++s)) break;
+    }
+    if (!ret->groupnum) ret->groups = (tre_group*)calloc(1,sizeof(tre_group));
+    //else assert(realloc(ret->groups,ret->groupnum+1));
+    ret->groups[0].text = strndup(start,s-start);
     return ret;
 }
 
-/* 匹配假设：无分组 
- * 回溯点有两个：一个是当有可回溯记录，且新元素匹配失败 
- *               一个是当已经到了末尾，但是后面还有宽度大于0的元素
- * 回溯的顺序是从后到前 */
-char*
-tre_match(tre_regex *re,const char*s)
-{
-    const char* start=s;
-    const char* btpoint = NULL;
-    const char* end = s + strlen(s);
-    tre_element *em;
-
-    for (em = re->ems ; em<re->ems+re->emnum ; em++) {
-        if (s==end) {
-            /* 回溯点2 */
-            tre_element *_em;
-            for (_em = em+1;_em < re->ems+re->emnum;_em++) {
-                if (!_em->flag) {
-                    /* 找到宽度不为0的元素，尝试从这里回溯 */
-                    tre_regex *_re = malloc(sizeof(tre_regex));
-                    _re->emnum = re->ems+re->emnum - _em;
-                    _re->ems = _em;
-                    const char*_s;
-                    const char* _ret;
-                    for (_s = s-1 ; _s >= btpoint ; _s--)
-                        if (_ret=tre_match(_re,_s)) {
-                            s = _s + strlen(_ret);
-                            free((void*)_ret);
-                            goto end;
-                        }
-                    return NULL;
-                }
-            }
-            break;
-        }
-        if (match_elemlent(em,s)) {
-            if (!btpoint) btpoint = s;
-            s++;
-            if (em->infinite) em--;
-        } else {
-            if (em->flag) goto check;
-            /* 回溯点 1 */
-            tre_element *_em;
-            for (_em = em;_em < re->ems+re->emnum;_em++) {
-                if (!_em->flag) {
-                    /* 找到宽度不为0的元素，尝试从这里回溯 */
-                    tre_regex *_re = malloc(sizeof(tre_regex));
-                    _re->emnum = re->ems+re->emnum - _em;
-                    _re->ems = _em;
-                    const char*_s;
-                    const char* _ret;
-                    for (_s = s-1 ; _s >= btpoint ; _s--) {
-                        if (_ret=tre_match(_re,_s)) {
-                            s = _s + strlen(_ret);
-                            free((void*)_ret);
-                            goto end;
-                        }
-                    }
-                    return NULL;
-                }
-            }
-            return NULL;
-        }
-check:;
-        // TODO: 这里可以优化下，这句注释掉是为了回溯 b?bc 这样的句子
-        //if ((!em->flag)&&(!btpoint)) btpoint = NULL;
-    }
-end:    return strndup(start,s-start);
-}
-
-//#define fs_foreach(__s,__p) for (__p = __s->s;__p<__s->s+__s->len;__p++)
-
-// "a(b?c+)(d)d"  "abcccddd"
-
-/* -- Tinyre 第五原型 --
- * 可识别的表达式：
- * . \s \S \d 和 任意字符
- * 可识别的辅助符号：
- * + 和 ? 和 * 和 ()      
- * -> 注意括号中暂时只能有单个字符，同时由于没有分组这东西，
- * 括号暂时只有象征意义。
- * */
+/* tinyre 正则 第六原型(DFA) a版
+ * 支持 [] () . * ? \d \s \S
+ */
 int main(int argc,char* argv[])
 {
-    tre_regex* re = compile("1?12");
-    assert(re);
-    for (int i=0;i<re->emnum;i++) {
-        printf("元素 %d,匹配内容 %s,允许回溯 %s,无穷：%s\n",i,re->ems[i].re,re->ems[i].flag?"是":"否",re->ems[i].infinite?"是":"否");
-        for (int j=0;j<re->ems[i].childnum;j++)
-            printf("-->  %d,匹配内容 %s,允许回溯 %s\n",i,re->ems[i].childs[j].re,re->ems[i].childs[j].flag?"是":"否");
-    }
-    char* ret;
-    if (ret = tre_match(re,"123")) {
-        printf("匹配成功！ %s\n",ret);
-    } else {
-        printf("匹配失败！\n");
+    tre_pattern* re = compile("a.*");
+    tre_Match* ret = tre_match(re,"a[2]");
+    if (ret) {
+        _p(ret->groups[0].text);
     }
     return 0;
 }
