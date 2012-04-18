@@ -2,7 +2,7 @@
  * start : 2012-4-8 09:57
  * tiny re
  * 微型python风格正则表达式库
- * 第六原型a (DFA)
+ * 第六原型b (DFA)
  */
 
 #include <stdio.h>
@@ -15,6 +15,11 @@
 /* 关于 from 和 prev：
  * from 一般只用于并联情况，
  * 若这个值不存在，则视为 from 与 prev 等价
+ * from 用于：
+ * 1. 并联时 (|) 和 [] 指示当前节点是
+ *    哪一个失败后跳转而来的。
+ * 2. 在 ) 节点中标示 ( 的位置，方便
+ *    * + ? 等运算符进行查找。
  */
 
 typedef struct node {
@@ -77,11 +82,17 @@ strndup (const char *s, size_t n)
 
 #define s_foreach(__s,__p) for (__p = __s;*__p;__p++)
 
+#define pc(c) printf("_%c",c)
 #define _p(x) printf("%s\n",x)
 
 #define newnode() (tre_node*)calloc(1,sizeof(tre_node))
 
 bool dotall = false;
+
+/* 关于 . + * 和组 
+ * 对于这三个修饰符，我实现了一个支持接口：
+ * 在 ( 节点上附加了 failed 属性，我担心这个特性将来会和回溯冲突。
+ * */
 
 /* 第六原型 (DFA) 
  * 这里实现了对 [] () ? + * 的支持 */
@@ -123,37 +134,68 @@ tre_pattern* compile(char*re)
                 }
                 break;
             case '?' :
-                if (!parellelmode) node->prev->failed = node;
-                else goto __def;
+                if (!parellelmode) {
+                    tre_node* prev = node->prev;
+                    if (!prev) ; /* TODO:这里报错:非法的"?" */
+                    if (prev->re[0]==')') {
+                        prev->from->failed = node;
+                    } else node->prev->failed = node;
+                } else goto __def;
                 break;
             case '+' :
                 if (!parellelmode) {
-                    *node = *node->prev;
-                    node = node->failed = newnode();
+                    tre_node* prev = node->prev;
+                    if (!prev) ; /* TODO:这里报错:非法的"+" */
+                    if (prev->re[0]==')') {
+                        if (prev->from->next != prev) {
+                            for (tre_node _node = prev->from->next;_node!=prev;_node = _node->next) {
+                                /* 复制一段节点，这个恐怕递归才能做到 */
+                            }
+                            prev->next = prev->from;
+                        }
+                    } else {
+                        *node = *node->prev;
+                        node = node->failed = newnode();
+                    }
                 } else goto __def;
                 break;
             case '*' : 
                 if (!parellelmode) {
-                    node->prev->next = node->prev;
-                    node->prev->failed = node;
+                    tre_node* prev = node->prev;
+                    if (!prev) ; /* TODO:这里报错:非法的"+" */
+                    if (prev->re[0]==')') {
+                        prev->next = prev->from;
+                        prev->from->failed = node;
+                    } else {
+                        node->prev->next = node->prev;
+                        node->prev->failed = node;
+                    }
                 } else goto __def;
                 break;
+            /* 这段算了，不好宁愿不要。
+             * 这个实现的设计有点问题，
+             * next 和 failed 的交替并不能总是好好工作。
             case '|' :
                 if (!grouptail) {
                     ;
                 } else {
-                    /* 斩断旧有联系 */
-                    /*node->prev->next = NULL;
+                    * 斩断旧有联系 *
+                    node->prev->next = NULL;
                     tre_node* _node = start;
                     while (_node->failed) _node = _node->failed;
                     _node->failed = _node;
                     node->from = _node;
                     node->prev = NULL;
                     for (;_node;_node=_node->next)
-                        if (!_node->failed) _node->failed = node;*/
+                        if (!_node->failed) _node->failed = node;
                 }
-                break;
+                break;*/
             case '(' :
+                node->re[0] = '(';
+                node->next = newnode();
+                node->next->prev = node;
+                node = node->next;
+
                 ret->groupnum++;
                 if (!grouptail)
                     grouptail = ret->groups = (_tre_group*)calloc(1,sizeof(_tre_group));
@@ -171,13 +213,18 @@ tre_pattern* compile(char*re)
                         p = p1;
                     }
                 }
-                grouptail->start = node;
+                grouptail->start = node->prev;
                 break;
             case ')':
                 if (grouptail) {
                     _tre_group *pg = grouptail;
                     /* TODO:括号不对齐时这里将会崩溃 */
                     while (pg->end) pg = pg->prev;
+                    node->re[0] = ')';
+                    node->from = pg->start;
+                    node->next = newnode();
+                    node->next->prev = node;
+                    node = node->next;
                     pg->end = node->prev;
                     break;
                 } else goto __def;
@@ -216,9 +263,6 @@ tre_pattern* compile(char*re)
                 break;
         }
     }
-    /* 没有必要的尾节点 */
-    //node->prev->next = NULL;
-    //free(node);
     return ret;
 }
 
@@ -285,57 +329,131 @@ tre_Match* tre_match(tre_pattern*re,char*s)
     }
 
     while (true) {
-        if (groupnum) {
+        if (p->re[0] == '(') {
+            /* 接下来的东西在组内 */
             for (int i=0;i<groupnum;i++) {
-                if (g_start[i]) {
-                    if (g_start[i]==p) {
-                        /* 找到组的开头了 */
-                        g_text[i] = s;
-                        g_start[i] = NULL;
-                        /* 若组内只有一个字符 */
-                        if (g_end[i]==p) {
-                            i--;
-                            continue;
-                        }
-                        break;
-                    }
-                } else {
-                    /* 匹配组的末尾 */
-                    if (g_end[i]&&g_end[i]==p) {
-                        /* 找到组的末尾 */
-                        ret->groups[i+1].text = strndup(g_text[i],s-g_text[i]+1);
-                        g_end[i] = NULL;
-                        break;
-                    }
+                if (g_start[i]&&g_start[i]==p) {
+                    g_text[i] = s;
+                    g_start[i] = NULL;
+                    break;
                 }
             }
-        }
+            p = p->next;
+        } else if (p->re[0] == ')') {
+            /* 组的末尾 */
+            for (int i=0;i<groupnum;i++) {
+                if (g_end[i]==p) { // (!g_start[i])&&
+                    ret->groups[i+1].text = strndup(g_text[i],s-g_text[i]);
+                    g_end[i] = NULL;
+                    break;
+                }
+            }
+            p = p->next;
+        } else if (p->re[0] == '\0') {
 
-        bool _ret = match(p,*s);
-        if (_ret && p->next) p = p->next;
-        else if (p->failed) {
-            p = p->failed;
-            continue;
+            if (!groupnum) {
+                ret->groups = (tre_group*)calloc(1,sizeof(tre_group));
+            }
+            else {
+                free(g_start);
+                free(g_end);
+                free(g_text);
+            }
+            ret->groups[0].text = strndup(start,s-start);
+            return ret;
+        } else {
+            bool _ret = match(p,*s);
+            if (_ret && p->next) p = p->next;
+            else if (p->failed) {
+                p = p->failed;
+                continue;
+            } else break;
+            s++;
         }
-        else break;
-        if (!*(++s)) break;
     }
-    if (!ret->groupnum) ret->groups = (tre_group*)calloc(1,sizeof(tre_group));
-    //else assert(realloc(ret->groups,ret->groupnum+1));
-    ret->groups[0].text = strndup(start,s-start);
-    return ret;
+
+    if (groupnum) {
+        free(g_start);
+        free(g_end);
+        free(g_text);
+        for (int i=0;i<=groupnum;i++) {
+            free(ret->groups[i].name);
+            free(ret->groups[i].text);
+        }
+        free(ret->groups);
+    }
+    free(ret);
+    return NULL;
 }
 
-/* tinyre 正则 第六原型(DFA) a版
+void tre_freepattern(tre_pattern*re)
+{
+    _tre_group* g;
+    if (re->groups) {
+        for (g=re->groups ; g->next ; g=g->next) {
+            if (g->prev) {
+                free(g->prev->name);
+                free(g->prev);
+            }
+        }
+        if (g->prev) {
+            free(g->prev->name);
+            free(g->prev);
+        }
+        free(g->name);
+        free(g);
+    }
+
+    tre_node* n;
+    for (n=re->start ; n->next ; n=n->next) {
+        if (n->prev) {
+            free(n->prev);
+        }
+    }
+    free(n->prev);
+    free(n);
+
+    free(re);
+}
+
+void tre_freematch(tre_Match*m)
+{
+    for (int i=0;i<=m->groupnum;i++) {
+        free(m->groups[i].name);
+        free(m->groups[i].text);
+    }
+    free(m->groups);
+    free(m);
+}
+
+/* tinyre 正则 第六原型(DFA) b版
  * 支持 [] () . * ? \d \s \S
  */
 int main(int argc,char* argv[])
 {
-    tre_pattern* re = compile("a.*");
-    tre_Match* ret = tre_match(re,"a[2]");
+    tre_pattern* re = compile("(a(?P<g1>d))");
+    for (tre_node* node = re->start;node;node = node->next) {
+        printf("节点 %x 表达式: %1c",node,node->re[0]);
+        if (node->re[0]=='\0') putchar(' ');
+        if (node->re[0]=='\\') printf("%c ",node->re[1]);
+        else printf("  ");
+        printf("成功转向: %7x " , node->next);
+        printf("失败转向: %7x " , node->failed);
+        printf("上个节点: %7x " , node->prev);
+        printf("from : %7x " , node->from);
+        putchar('\n');
+    }
+    tre_Match* ret = tre_match(re,"ad");
     if (ret) {
         _p(ret->groups[0].text);
+        _p(ret->groups[1].text);
+        _p(ret->groups[2].text);
+    } else {
+        _p("匹配失败");
     }
+    /* 这段代码在[]这样的路线选择上还有问题，回头再改 */
+    tre_freepattern(re);
+    if (ret) tre_freematch(ret);
     return 0;
 }
 
