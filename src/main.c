@@ -5,9 +5,19 @@
  * 第七原型
  */
 
+/* 这份代码可以在 gcc 和 clang 下，
+ * 通过以下命令编译通过：
+ * gcc main.c -std=c99
+ * clang main.c
+ * 在MSVC中可以使用C++方式编译通过，
+ * 但不推荐。
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
+#ifndef  _MSC_VER
 #include <stdbool.h>
+#endif
 #include <string.h>
 #include <assert.h>
 #include <ctype.h>
@@ -22,6 +32,7 @@ typedef struct btstack_node {
     char* s;
 } btstack_node;
 
+#ifndef  __clang__
 static char*
 strndup (const char *s, size_t n)
 {
@@ -38,6 +49,7 @@ strndup (const char *s, size_t n)
     result[len] = '\0';
     return (char *) memcpy (result, s, len);
 }
+#endif
 
 bool dotall = false;
 
@@ -139,7 +151,11 @@ char* tre_compile(char*re)
                     }
                     // 申请缓存空间
                     int len = pr-start;
+                    #ifndef  _MSC_VER
                     char buf[len];
+                    #else
+                    char* buf = (char*)malloc(len*sizeof(char));
+                    #endif
                     // 备份要被覆盖的字串
                     memcpy(&buf,start,len);
                     pr = start;
@@ -208,7 +224,11 @@ char* tre_match(char*re,char*s)
     int len = strlen(s);
     if (!len) return NULL;
 
+    #ifndef  _MSC_VER
     btstack_node stack[len];
+    #else
+    btstack_node* stack = (btstack_node*)malloc(len*sizeof(btstack_node));
+    #endif
     int top = 0;
 
     char *p,*start=s;
@@ -237,9 +257,13 @@ char* tre_match(char*re,char*s)
                         {
                             char* p1 = p+1;
                             while (*p1!=':') p1++;
+                            #ifndef  _MSC_VER
                             char _buf[p1-p];
+                            #else
+                            char* _buf = (char*)malloc((p1-p)*sizeof(char));
+                            #endif
                             _buf[p1-p-1] = '\0';
-                            memcpy(&_buf,p+1,p1-p-1);
+                            memcpy(_buf,p+1,p1-p-1);
                             int i = atoi(_buf);
                             p += (i-3);
                         }
@@ -293,14 +317,14 @@ void tre_freepattern(char*re)
  */
 int main(int argc,char* argv[])
 {
-    char* ret = tre_compile("(\\d)*");
+    char* ret = tre_compile("啊*");
     if (ret) {
         /*char*p;
         s_foreach(ret,p) {
             pc(*p);
         }
         putchar('\n');*/
-        char *r = tre_match(ret,"12");
+        char *r = tre_match(ret,"啊啊啊");
         if (r) {
             _p(r);
             free(r);
