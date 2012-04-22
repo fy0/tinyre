@@ -1,6 +1,7 @@
 /*
  * start : 2012-4-8 09:57
- * tiny re
+ * update: 2012-4-22
+ * tinyre
  * 微型python风格正则表达式库
  * 第七原型
  */
@@ -11,6 +12,7 @@
  * clang main.c
  * 在MSVC中可以使用C++方式编译通过，
  * 但不推荐。
+ * [4.22 新版本暂时无法在VC中编译]
  */
 
 #include <stdio.h>
@@ -26,6 +28,12 @@
 
 #define pc(c) printf("_%c",c)
 #define _p(x) printf("%s\n",x)
+
+/* 编译后的表达式 */
+typedef struct tre_pattern {
+    int groupnum;
+    char* re;
+} tre_pattern;
 
 typedef struct btstack_node {
     char* re;
@@ -95,20 +103,22 @@ int2str(int val,char*buf)
     return len;
 }
 
-char* tre_compile(char*re)
+tre_pattern* tre_compile(char*re)
 {
     char* ret;
     char*p,*pr;
+    tre_pattern* ptn;
 
     if (!re) return NULL;
     else {
+        ptn = (tre_pattern*)calloc(1,sizeof(tre_pattern));
+        assert(ptn);
+
         /* 首先预测编译后长度，
          * 并据此为buf申请内存 */
-        /* 长度 */
-        int len=0;
-        /* 冒号，括号，问号，星号，加号，方括号*/
-        int cout_colon=0,cout_parentheses=0,cout_qsmark=0,
-            cout_star=0,cout_plus=0;//cout_square=0;
+        /* 全长，冒号，括号，问号，星号，加号，方括号*/
+        int len=0,cout_colon=0,cout_parentheses=0,cout_qsmark=0,
+            cout_star=0,cout_plus=0,cout_square=0;
         s_foreach(re,p) {
             len++;
             switch (*p) {
@@ -117,10 +127,15 @@ char* tre_compile(char*re)
                 case '?': cout_qsmark++;break;
                 case '*': cout_star++;break;
                 case '+': cout_plus++;break;
-                //case '[': cout_square++;break;
+                case '[': cout_square++;break;
             }
         }
-        pr = ret = (char*)calloc(1,len+cout_colon+cout_qsmark+cout_star*7+cout_plus*8+1);
+        /* 这边的内存预算几乎是一塌糊涂 */
+        pr = ret = (char*)calloc(1,len+cout_colon+cout_qsmark+cout_star*7+cout_plus*8+cout_square*14+1);
+        /* TODO:为分组申请内存 */
+        if (cout_parentheses) {
+            //ptn->groups = (_tre_group*)malloc(cout_parentheses*sizeof(_tre_group));
+        }
     }
     s_foreach(re,p) {
         switch (*p) {
@@ -146,7 +161,12 @@ char* tre_compile(char*re)
                         else start = pr - 1;
                     } else {
                         char *p1 = pr-1;
-                        while (*p1!='(') p1--;
+                        int _cout = 1;
+                        while (*p1!='('||_cout!=0) {
+                            p1--;
+                            if (*p1==')') _cout++;
+                            else if (*p1=='(') _cout--;
+                        }
                         start = p1;
                     }
                     // 申请缓存空间
@@ -183,11 +203,98 @@ char* tre_compile(char*re)
                     }
                     break;
                 }
-            default   :
+            case '['  :
+                {
+                    /* 确定[]内元素个数 */
+                    char* p1 = p+1;
+                    int num = 0;
+                    while (*p1!=']'||*(p1-1)=='\\') {
+                        if (*p1!='\\') num++;
+                        p1++;
+                    }
+
+                    #ifndef  _MSC_VER
+                    struct {
+                        int tlen,jlen;
+                    } _buf[num];
+                    #else
+                    /* 这里该怎么初始化呢？ */
+                    struct {
+                        int tlen,jlen;
+                    } *_buf;
+                    #endif
+
+                    p1 = p+1;
+                    int index=0;
+                    while (*p1!=']'||*(p1-1)=='\\') {
+                        if (*p1=='\\') {
+                            _buf[index++].tlen = 2;
+                            p1++;
+                        } else _buf[index++].tlen = 1;
+                        p1++;
+                    }
+
+                    /* 基础偏移量为末尾元素的长度 */
+                    int offset = _buf[num-1].tlen;
+                    /* 从后往前逐个计算偏移量 */
+                    for (int i=num-2;i>=0;i--) {
+                        int _jlen = _buf[i].jlen = offset;
+                        /* 计算位数 */
+                        int len_of_jlen=0;
+                        _jlen+=1;
+                        while (_jlen>0) {_jlen /= 10;len_of_jlen++;}
+                        /* 压栈指令偏移(:p) */
+                        offset += 2;
+                        /* 用于匹配的字符的偏移 */
+                        offset += _buf[i].tlen;
+                        /* 跳转指令偏移(:jn:) */
+                        offset += (3 + len_of_jlen);
+                    }
+
+                    /* 写入指令 */
+                    /* 这里忽略了末尾元素，因末尾元素不需压栈和跳转 */
+                    p1 = p+1;
+                    for (int i=0;i<num-1;i++) {
+                        /* 压栈指令部分 */
+                        memcpy(pr,":p",2);
+                        pr+=2;
+                        /* 匹配字符部分 */
+                        *pr++ = *p1++;
+                        if (_buf[i].tlen==2) *pr++ = *p1++;
+                        /* 跳转指令部分 */
+                        memcpy(pr,":j",2);
+                        pr+=2;
+                        char* ibuf = (char*)malloc(11);
+                        int _len = int2str(_buf[i].jlen,ibuf);
+                        memcpy(pr,ibuf,_len);
+                        free(ibuf);
+                        pr += _len;
+                        *pr++ = ':';
+                    }
+
+                    /* 写入末尾元素 */
+                    *pr++ = *p1++;
+                    if (_buf[num-1].tlen==2) *pr++ = *p1++;
+
+                    p = p1;
+
+                    /* 编译后[abc]将形如:p a :j5: :p b :j2: c */
+                    /* 跳转总距离为(元素数-1)个len(":p") 加
+                     * len(元素本身) 加 len(跳转指令长度) */
+                    break;
+                }
+            case '('  :
+                /* TODO:组 */
+                goto _def;
+            case ')'  :
+                /* TODO:组 */
+                goto _def;
+            default   :  _def :
                 *(pr++) = *p;
         }
     }
-    return ret;
+    ptn->re = ret;
+    return ptn;
 }
 
 static bool
@@ -219,7 +326,7 @@ match(char re[2],char c)
 
 //#define _pop() 
 #define _exitmatch() return NULL;
-char* tre_match(char*re,char*s)
+char* tre_match(tre_pattern*re,char*s)
 {
     int len = strlen(s);
     if (!len) return NULL;
@@ -236,7 +343,7 @@ char* tre_match(char*re,char*s)
 
     bool _dumpstack = false;
 
-    s_foreach(re,p) {
+    s_foreach(re->re,p) {
         switch (*p) {
             case '('  :
                 break;
@@ -265,7 +372,12 @@ char* tre_match(char*re,char*s)
                             _buf[p1-p-1] = '\0';
                             memcpy(_buf,p+1,p1-p-1);
                             int i = atoi(_buf);
-                            p += (i-3);
+                            if (i<0)
+                                /* 这个偏移量的处理有点病态 */
+                                p += (i-3);
+                            else {
+                                p = p1+i;
+                            }
                         }
                 }
                 break;
@@ -279,12 +391,12 @@ _def:           if (!match(c,*s)) {
                     if (!top) _exitmatch();
                     p = stack[top].re+1;
                     s = stack[top--].s;
-                    int _cout = 0;
+                    int _cout = 1;
                     if (*p=='(') {
                         while (*p!=')'||_cout!=0) {
                             p++;
-                            //if (*p=='(') _cout++;
-                            //else if (*p==')') _cout--;
+                            if (*p=='(') _cout++;
+                            else if (*p==')') _cout--;
                         }
                     }
                     if (*p=='\\') p++;
@@ -301,30 +413,31 @@ _def:           if (!match(c,*s)) {
     return strndup(start,s-start);
 }
 
-void tre_freepattern(char*re)
+void tre_freepattern(tre_pattern*re)
 {
+    free(re->re);
     free(re);
 }
 
-/* 第七原型
+/* tinyre
  * 这是一个从头设计的正则引擎。
  *
- * 当前仅支持：. ? * + \d \s \S
- * 同时请注意括号不要嵌套
+ * 当前仅支持：. ? * + () [] \d \s \S
  *
- * 匆匆做完，不知道问题有多少。
- * 此项目定案，这个看起来原型不错。
+ * 注意：[]后面暂时不能跟随 ? * +
+ *
  */
 int main(int argc,char* argv[])
 {
-    char* ret = tre_compile("啊*");
+    tre_pattern* ret = tre_compile("[\\da]23");
     if (ret) {
+        //_p(ret->re);
         /*char*p;
         s_foreach(ret,p) {
             pc(*p);
         }
         putchar('\n');*/
-        char *r = tre_match(ret,"啊啊啊");
+        char *r = tre_match(ret,"a23");
         if (r) {
             _p(r);
             free(r);
