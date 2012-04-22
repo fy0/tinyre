@@ -29,11 +29,31 @@
 #define pc(c) printf("_%c",c)
 #define _p(x) printf("%s\n",x)
 
+/* 内部匹配使用的组 */
+typedef struct _tre_group {
+    char* name;
+    char* start;
+    char* end;
+} _tre_group;
+
+/* 返回结果使用的组 */
+typedef struct tre_group {
+    char*name;
+    char*text;
+} tre_group;
+
 /* 编译后的表达式 */
 typedef struct tre_pattern {
     int groupnum;
     char* re;
+    _tre_group *groups;
 } tre_pattern;
+
+/* 匹配后返回的结果 */
+typedef struct tre_Match {
+    int groupnum;
+    tre_group* groups;
+} tre_Match;
 
 typedef struct btstack_node {
     char* re;
@@ -156,20 +176,24 @@ tre_pattern* tre_compile(char*re)
                     // 首先确定前方字符的开始位置
                     char* start=NULL;
                     if (offset==1) start = pr-1;
-                    else if (*(pr-1)!=')'||*(pr-2)=='\\') {
+                    else if ((*(pr-1)!=')'&&*(pr-1)!=']')||*(pr-2)=='\\') {
                         if (*(pr-2)=='\\') start = pr - 2;
                         else start = pr - 1;
                     } else {
+                        char _signl,_signr = *(pr-1);
+                        if (_signr==')') _signl = '(';
+                        else _signl = '[';
+
                         char *p1 = pr-1;
                         int _cout = 1;
-                        while (*p1!='('||_cout!=0) {
+                        while (*p1!=_signl||_cout!=0) {
                             p1--;
-                            if (*p1==')') _cout++;
-                            else if (*p1=='(') _cout--;
+                            if (*p1==_signr) _cout++;
+                            else if (*p1==_signl) _cout--;
                         }
                         start = p1;
                     }
-                    // 申请缓存空间
+                    // 申请缓存空间，len为括号内文本长度
                     int len = pr-start;
                     #ifndef  _MSC_VER
                     char buf[len];
@@ -194,8 +218,9 @@ tre_pattern* tre_compile(char*re)
                     if (*p!='?') {
                         memcpy(pr,":j",2);
                         pr+=2;
-                        char* _buf = (char*)malloc(12);
-                        int _len = int2str(0-(len+1),_buf);
+                        char* _buf = (char*)malloc(11);
+                        // -2 是因为 :j 的长度是 2
+                        int _len = int2str(0-len-2,_buf);
                         memcpy(pr,_buf,_len);
                         free(_buf);
                         pr += _len;
@@ -205,6 +230,7 @@ tre_pattern* tre_compile(char*re)
                 }
             case '['  :
                 {
+                    *pr++ = '[';
                     /* 确定[]内元素个数 */
                     char* p1 = p+1;
                     int num = 0;
@@ -277,10 +303,8 @@ tre_pattern* tre_compile(char*re)
                     if (_buf[num-1].tlen==2) *pr++ = *p1++;
 
                     p = p1;
+                    *pr++ = *p;
 
-                    /* 编译后[abc]将形如:p a :j5: :p b :j2: c */
-                    /* 跳转总距离为(元素数-1)个len(":p") 加
-                     * len(元素本身) 加 len(跳转指令长度) */
                     break;
                 }
             case '('  :
@@ -324,19 +348,20 @@ match(char re[2],char c)
     return false;
 }
 
-//#define _pop() 
 #define _exitmatch() return NULL;
 char* tre_match(tre_pattern*re,char*s)
 {
     int len = strlen(s);
     if (!len) return NULL;
 
+    len = len > strlen(re->re) ? len : strlen(re->re);
+
     #ifndef  _MSC_VER
-    btstack_node stack[len];
+    btstack_node _stack[len];
     #else
     btstack_node* stack = (btstack_node*)malloc(len*sizeof(btstack_node));
     #endif
-    int top = 0;
+    int top = -1;
 
     char *p,*start=s;
     char c[2];
@@ -349,12 +374,14 @@ char* tre_match(tre_pattern*re,char*s)
                 break;
             case ')'  :
                 break;
+            case '['  : case ']'  :
+                break;
             case ':'  :
                 switch (*++p) {
                     case 'p' :
                         if (!_dumpstack) {
-                            stack[++top].re = p;
-                            stack[top].s = s;
+                            _stack[top].re = p;
+                            _stack[top++].s = s;
                         } else _dumpstack = false;
                         break;
                     case '-' :
@@ -373,8 +400,7 @@ char* tre_match(tre_pattern*re,char*s)
                             memcpy(_buf,p+1,p1-p-1);
                             int i = atoi(_buf);
                             if (i<0)
-                                /* 这个偏移量的处理有点病态 */
-                                p += (i-3);
+                                p += (i-2);
                             else {
                                 p = p1+i;
                             }
@@ -388,15 +414,20 @@ char* tre_match(tre_pattern*re,char*s)
             default:
                 c[0] = *p;
 _def:           if (!match(c,*s)) {
-                    if (!top) _exitmatch();
-                    p = stack[top].re+1;
-                    s = stack[top--].s;
+                    if (top<0) _exitmatch();
+                    p = _stack[--top].re+1;
+                    s = _stack[top].s;
+
                     int _cout = 1;
-                    if (*p=='(') {
-                        while (*p!=')'||_cout!=0) {
+                    if (*p=='('||*p=='[') {
+                        char _signl=*p,_signr;
+                        if (_signl=='(') _signr = ')';
+                        else _signr = ']';
+
+                        while (*p!=_signr||_cout!=0) {
                             p++;
-                            if (*p=='(') _cout++;
-                            else if (*p==')') _cout--;
+                            if (*p==_signl) _cout++;
+                            else if (*p==_signr) _cout--;
                         }
                     }
                     if (*p=='\\') p++;
@@ -424,20 +455,19 @@ void tre_freepattern(tre_pattern*re)
  *
  * 当前仅支持：. ? * + () [] \d \s \S
  *
- * 注意：[]后面暂时不能跟随 ? * +
- *
  */
 int main(int argc,char* argv[])
 {
-    tre_pattern* ret = tre_compile("[\\da]23");
+    //tre_pattern* ret = tre_compile("(a*)*");
+    tre_pattern* ret = tre_compile("[123]*3");
     if (ret) {
-        //_p(ret->re);
+        _p(ret->re);
         /*char*p;
-        s_foreach(ret,p) {
+        s_foreach(ret->re,p) {
             pc(*p);
         }
         putchar('\n');*/
-        char *r = tre_match(ret,"a23");
+        char *r = tre_match(ret,"11333");
         if (r) {
             _p(r);
             free(r);
