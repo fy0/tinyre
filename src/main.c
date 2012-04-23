@@ -277,7 +277,18 @@ tre_pattern* tre_compile(char*re)
                         if (*p1=='\\') {
                             _buf[index++].tlen = 2;
                             p1++;
-                        } else _buf[index++].tlen = 1;
+                        } else {
+                            /* 特殊字符转义 */
+                            switch (*p1) {
+                                case'*':case'.':case'+':case'?':case'(':case')':
+                                case'[':case']':case'{':case'}':case'^':case'$':
+                                case':':
+                                    _buf[index++].tlen = 2;
+                                    break;
+                                default:
+                                    _buf[index++].tlen = 1;
+                            }
+                        }
                         p1++;
                     }
 
@@ -306,8 +317,18 @@ tre_pattern* tre_compile(char*re)
                         memcpy(pr,":p",2);
                         pr+=2;
                         /* 匹配字符部分 */
+                        if (_buf[i].tlen==2) {
+                            switch (*p1) {
+                                case'*':case'.':case'+':case'?':case'(':case')':
+                                case'[':case']':case'{':case'}':case'^':case'$':
+                                case':':
+                                    *pr++ = '\\';
+                                    break;
+                                default:
+                                    *pr++ = *p1++;
+                            }
+                        }
                         *pr++ = *p1++;
-                        if (_buf[i].tlen==2) *pr++ = *p1++;
                         /* 跳转指令部分 */
                         memcpy(pr,":j",2);
                         pr+=2;
@@ -387,7 +408,7 @@ match(char re[2],char c)
     return false;
 }
 
-#define _exitmatch() return NULL;
+#define _exitmatch() {free(g_text);free(g_len);free(ret->groups);free(ret);return NULL;}
 tre_Match* tre_match(tre_pattern*re,char*s)
 {
     int len = strlen(s);
@@ -409,14 +430,17 @@ tre_Match* tre_match(tre_pattern*re,char*s)
 
     /* 提供对组机制的支持 */
     const char** g_text = NULL;
+    int *g_len = NULL;
 
     if (re->groupnum) {
         g_text  = (const char**)calloc(re->groupnum,sizeof(char*));
-        ret->groups = (tre_group*)calloc(re->groupnum+1,sizeof(tre_group));
+        g_len   = (int*)calloc(re->groupnum,sizeof(int));
         ret->groupnum = re->groupnum;
     }
 
     bool _dumpstack = false;
+
+    ret->groups = (tre_group*)calloc(re->groupnum+1,sizeof(tre_group));
 
     s_foreach(re->re,p) {
         switch (*p) {
@@ -424,7 +448,7 @@ tre_Match* tre_match(tre_pattern*re,char*s)
                 /* 接下来的东西在组内 */
                 for (int i=0;i<re->groupnum;i++) {
                     if (re->groups[i].start==p) {
-                        g_text[i] = s;
+                        if (*s) g_text[i] = s;
                         break;
                     }
                 }
@@ -433,8 +457,7 @@ tre_Match* tre_match(tre_pattern*re,char*s)
                 /* 组的末尾 */
                 for (int i=0;i<re->groupnum;i++) {
                     if (re->groups[i].end==p) {
-                        if (ret->groups[i+1].text) free(ret->groups[i+1].text);
-                        ret->groups[i+1].text = strndup(g_text[i],s-g_text[i]);
+                        g_len[i] = s-g_text[i];
                         break;
                     }
                 }
@@ -483,8 +506,8 @@ tre_Match* tre_match(tre_pattern*re,char*s)
                 c[0] = *p;
 _def:           if (!match(c,*s)) {
                     if (top<0) _exitmatch();
-                    p = stack[--top].re+1;
-                    s = stack[top].s;
+                    p = stack[top].re+1;
+                    s = stack[top--].s;
 
                     int _cout = 1;
                     if (*p=='('||*p=='[') {
@@ -512,12 +535,14 @@ _def:           if (!match(c,*s)) {
 
     if (re->groupnum) {
         for (int i=0;i<re->groupnum;i++) {
+            ret->groups[i+1].text = strndup(g_text[i],g_len[i]);
             if (re->groups[i].name)
                 ret->groups[i+1].name = strndup(re->groups[i].name,strlen(re->groups[i].name));
         }
     }
 
     free(g_text);
+    free(g_len);
     ret->groups[0].text = strndup(start,s-start);
     return ret;
 }
@@ -550,15 +575,15 @@ void tre_freematch(tre_Match*m)
 /* tinyre
  * 这是一个从头设计的正则引擎。
  *
- * 当前仅支持：. ? * + $ () [] \d \s \S
+ * 当前仅支持 : . ? * + $ () [] \d \s \S
  *
  * 支持分组
  *
  */
 int main(int argc,char* argv[])
 {
-    char regex[] = "(((?P<aa>.)*3)?3)$";
-    char text[]  = "11333";
+    char regex[] = "[ab.c](((?P<aa>.)*3)?3)$";
+    char text[]  = ".11333";
 
     /* 用法：
      * 编译表达式
