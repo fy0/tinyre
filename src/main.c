@@ -1,9 +1,13 @@
 /*
  * start : 2012-4-8 09:57
- * update: 2012-4-22
+ * update: 2012-4-23
+ *
  * tinyre
  * 微型python风格正则表达式库
  * 第七原型
+ *
+ * 首个实用版本：
+ * 2012-4-23 16:58
  */
 
 /* 这份代码可以在 gcc 和 clang 下，
@@ -12,7 +16,7 @@
  * clang main.c
  * 在MSVC中可以使用C++方式编译通过，
  * 但不推荐。
- * [4.22 新版本暂时无法在VC中编译]
+ * [4.22后新版本暂时无法在VC中编译]
  */
 
 #include <stdio.h>
@@ -28,6 +32,12 @@
 
 #define pc(c) printf("_%c",c)
 #define _p(x) printf("%s\n",x)
+
+/* 回溯栈节点 */
+typedef struct btstack_node {
+    char* re;
+    char* s;
+} btstack_node;
 
 /* 内部匹配使用的组 */
 typedef struct _tre_group {
@@ -54,11 +64,6 @@ typedef struct tre_Match {
     int groupnum;
     tre_group* groups;
 } tre_Match;
-
-typedef struct btstack_node {
-    char* re;
-    char* s;
-} btstack_node;
 
 #ifndef  __clang__
 static char*
@@ -129,6 +134,8 @@ tre_pattern* tre_compile(char*re)
     char*p,*pr;
     tre_pattern* ptn;
 
+    int gtop = -1;
+
     if (!re) return NULL;
     else {
         ptn = (tre_pattern*)calloc(1,sizeof(tre_pattern));
@@ -152,9 +159,8 @@ tre_pattern* tre_compile(char*re)
         }
         /* 这边的内存预算几乎是一塌糊涂 */
         pr = ret = (char*)calloc(1,len+cout_colon+cout_qsmark+cout_star*7+cout_plus*8+cout_square*14+1);
-        /* TODO:为分组申请内存 */
         if (cout_parentheses) {
-            //ptn->groups = (_tre_group*)malloc(cout_parentheses*sizeof(_tre_group));
+            ptn->groups = (_tre_group*)calloc(1,cout_parentheses*sizeof(_tre_group));
         }
     }
     s_foreach(re,p) {
@@ -204,6 +210,7 @@ tre_pattern* tre_compile(char*re)
                     memcpy(&buf,start,len);
                     pr = start;
                     // 根据运算符输入指令
+                    char _op = *p;
                     if (*p=='+') {
                         memcpy(pr,":-:p",4);
                         pr+=4;
@@ -225,6 +232,20 @@ tre_pattern* tre_compile(char*re)
                         free(_buf);
                         pr += _len;
                         *pr++ = ':';
+                    }
+                    // 对前面的分组进行修正处理
+                    if (gtop>=0) {
+                        int _offset = (_op=='+') ? 4:2;
+                        for (int i=0;i<=gtop;i++) {
+                            char *_pos = ptn->groups[i].start;
+                            if (_pos>=start&&_pos<=pr) {
+                                ptn->groups[i].start += _offset;
+                            }
+                            _pos = ptn->groups[i].end;
+                            if (_pos>=start&&_pos<=pr) {
+                                ptn->groups[i].end += _offset;
+                            }
+                        }
                     }
                     break;
                 }
@@ -308,15 +329,33 @@ tre_pattern* tre_compile(char*re)
                     break;
                 }
             case '('  :
-                /* TODO:组 */
+                gtop++;
+                ptn->groups[gtop].start = pr;
+
+                if (*(p+1)=='?') {
+                    if (*(p+2)=='P'&&*(p+3)=='<') {
+                        char*p1 = p+4;
+                        while (*p1!='>') p1++;
+                        if (p1==p+4) {}; // TODO:这里报错
+                        ptn->groups[gtop].name = strndup(p+4,p1-(p+4));
+                        p = p1;
+                    }
+                    *(pr++) = '(';
+                    break;
+                }
                 goto _def;
             case ')'  :
-                /* TODO:组 */
+                if (gtop>=0) {
+                    _tre_group*pg = ptn->groups + gtop;
+                    while (pg->end&&pg>=ptn->groups) pg--;
+                    pg->end = pr;
+                }
                 goto _def;
             default   :  _def :
                 *(pr++) = *p;
         }
     }
+    ptn->groupnum = gtop+1;
     ptn->re = ret;
     return ptn;
 }
@@ -349,15 +388,17 @@ match(char re[2],char c)
 }
 
 #define _exitmatch() return NULL;
-char* tre_match(tre_pattern*re,char*s)
+tre_Match* tre_match(tre_pattern*re,char*s)
 {
     int len = strlen(s);
     if (!len) return NULL;
 
+    tre_Match* ret = (tre_Match*)calloc(1,sizeof(tre_Match));
+
     len = len > strlen(re->re) ? len : strlen(re->re);
 
     #ifndef  _MSC_VER
-    btstack_node _stack[len];
+    btstack_node stack[len];
     #else
     btstack_node* stack = (btstack_node*)malloc(len*sizeof(btstack_node));
     #endif
@@ -366,13 +407,37 @@ char* tre_match(tre_pattern*re,char*s)
     char *p,*start=s;
     char c[2];
 
+    /* 提供对组机制的支持 */
+    const char** g_text = NULL;
+
+    if (re->groupnum) {
+        g_text  = (const char**)calloc(re->groupnum,sizeof(char*));
+        ret->groups = (tre_group*)calloc(re->groupnum+1,sizeof(tre_group));
+        ret->groupnum = re->groupnum;
+    }
+
     bool _dumpstack = false;
 
     s_foreach(re->re,p) {
         switch (*p) {
             case '('  :
+                /* 接下来的东西在组内 */
+                for (int i=0;i<re->groupnum;i++) {
+                    if (re->groups[i].start==p) {
+                        g_text[i] = s;
+                        break;
+                    }
+                }
                 break;
             case ')'  :
+                /* 组的末尾 */
+                for (int i=0;i<re->groupnum;i++) {
+                    if (re->groups[i].end==p) {
+                        if (ret->groups[i+1].text) free(ret->groups[i+1].text);
+                        ret->groups[i+1].text = strndup(g_text[i],s-g_text[i]);
+                        break;
+                    }
+                }
                 break;
             case '['  : case ']'  :
                 break;
@@ -380,8 +445,8 @@ char* tre_match(tre_pattern*re,char*s)
                 switch (*++p) {
                     case 'p' :
                         if (!_dumpstack) {
-                            _stack[top].re = p;
-                            _stack[top++].s = s;
+                            stack[++top].re = p;
+                            stack[top].s = s;
                         } else _dumpstack = false;
                         break;
                     case '-' :
@@ -411,12 +476,15 @@ char* tre_match(tre_pattern*re,char*s)
                 c[0] = '\\';
                 c[1] = *++p;
                 goto _def;
+            case '$'  :
+                if (*s) _exitmatch();
+                break;
             default:
                 c[0] = *p;
 _def:           if (!match(c,*s)) {
                     if (top<0) _exitmatch();
-                    p = _stack[--top].re+1;
-                    s = _stack[top].s;
+                    p = stack[--top].re+1;
+                    s = stack[top].s;
 
                     int _cout = 1;
                     if (*p=='('||*p=='[') {
@@ -441,36 +509,101 @@ _def:           if (!match(c,*s)) {
                 break;
         }
     }
-    return strndup(start,s-start);
+
+    if (re->groupnum) {
+        for (int i=0;i<re->groupnum;i++) {
+            if (re->groups[i].name)
+                ret->groups[i+1].name = strndup(re->groups[i].name,strlen(re->groups[i].name));
+        }
+    }
+
+    free(g_text);
+    ret->groups[0].text = strndup(start,s-start);
+    return ret;
 }
 
 void tre_freepattern(tre_pattern*re)
 {
+    if (re->groupnum) {
+        _tre_group* g;
+        for (int i=0;i<re->groupnum;i++) {
+            g = re->groups + i;
+            // 提醒：free(NULL); 不算错误
+            free(g->name);
+        }
+    }
+    free(re->groups);
     free(re->re);
     free(re);
+}
+
+void tre_freematch(tre_Match*m)
+{
+    for (int i=0;i<=m->groupnum;i++) {
+        free(m->groups[i].name);
+        free(m->groups[i].text);
+    }
+    free(m->groups);
+    free(m);
 }
 
 /* tinyre
  * 这是一个从头设计的正则引擎。
  *
- * 当前仅支持：. ? * + () [] \d \s \S
+ * 当前仅支持：. ? * + $ () [] \d \s \S
+ *
+ * 支持分组
  *
  */
 int main(int argc,char* argv[])
 {
+    char regex[] = "(((?P<aa>.)*3)?3)$";
+    char text[]  = "11333";
+
+    /* 用法：
+     * 编译表达式
+     * 1. tre_pattern* re = tre_compile(regex);
+     * 匹配文本
+     * 2. tre_Match *ret = tre_match(re,text);
+     * 取出文本
+     * 3. printf("%s\n",ret->group(0).text);
+     */
+
     //tre_pattern* ret = tre_compile("(a*)*");
-    tre_pattern* ret = tre_compile("[123]*3");
+    tre_pattern* ret = tre_compile(regex);
     if (ret) {
-        _p(ret->re);
+        // 输出表达式编译相关信息
+        printf("表达式编译为：%s\n",ret->re);
+        printf("共有组 %d 个。\n",ret->groupnum);
+        if (ret->groupnum) {
+            _tre_group* g;
+            for (int i=0;i<ret->groupnum;i++) {
+                g = ret->groups + i;
+                printf("组 %d ，开始位置 %7x 结束位置 %7x ('%c','%c') ",i+1,
+                        g->start,g->end,*g->start,*g->end);
+                if (g->name) printf("组名：%s\n",g->name);
+                else printf("无组名\n");
+            }
+        }
         /*char*p;
         s_foreach(ret->re,p) {
             pc(*p);
         }
         putchar('\n');*/
-        char *r = tre_match(ret,"11333");
+        putchar('\n');
+
+        // 进行匹配并输出相关信息
+        tre_Match *r = tre_match(ret,text);
         if (r) {
-            _p(r);
-            free(r);
+            printf("匹配文本：%s\n",r->groups[0].text);
+            if (r->groupnum) {
+                for (int i=1;i<r->groupnum+1;i++) {
+                    printf("组 %d ，匹配文本 %s ，",i,r->groups[i].text);
+                    if (r->groups[i].name) printf("组名：%s\n",r->groups[i].name);
+                    else printf("无组名\n");
+                }
+            }
+            tre_freematch(r);
         } else {
             _p("匹配失败！");
         }
