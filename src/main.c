@@ -141,11 +141,12 @@ tre_pattern* tre_compile(char*re)
         ptn = (tre_pattern*)calloc(1,sizeof(tre_pattern));
         assert(ptn);
 
-        /* 首先预测编译后长度，
-         * 并据此为buf申请内存 */
-        /* 全长，冒号，括号，问号，星号，加号，方括号，竖线*/
+        /* 首先预测编译后长度，并据此为buf申请内存 */
+        /* 全长，冒号，括号，问号，星号，加号，方括号，竖线，
+         * 连字符 */
         int len=0,cout_colon=0,cout_parentheses=0,cout_qsmark=0,
-            cout_star=0,cout_plus=0,cout_square=0,cout_vv=0;
+            cout_star=0,cout_plus=0,cout_square=0,cout_vv=0,
+            cout_hyphen=0;
         s_foreach(re,p) {
             len++;
             switch (*p) {
@@ -156,10 +157,11 @@ tre_pattern* tre_compile(char*re)
                 case '+': cout_plus++;break;
                 case '[': cout_square++;break;
                 case '|': cout_vv++;break;
+                case '-': cout_hyphen++;break;
             }
         }
         /* 这边的内存预算几乎是一塌糊涂 */
-        pr = ret = (char*)calloc(1,len+cout_colon+cout_qsmark+cout_star*7+cout_plus*8+cout_square*14+cout_vv*12+1);
+        pr = ret = (char*)calloc(1,len+cout_colon+cout_qsmark+cout_star*7+cout_plus*8+cout_square*14+cout_vv*12+cout_hyphen+1);
         if (cout_parentheses) {
             ptn->groups = (_tre_group*)calloc(1,cout_parentheses*sizeof(_tre_group));
         }
@@ -173,6 +175,10 @@ tre_pattern* tre_compile(char*re)
             case '\\' :
                 *(pr++) = '\\';
                 *(pr++) = *(++p);
+                break;
+            case '-'  :
+                *(pr++) = '\\';
+                *(pr++) = '-';
                 break;
             case '?'  : case '+' : case '*' :
                 {
@@ -257,7 +263,10 @@ tre_pattern* tre_compile(char*re)
                     char* p1 = p+1;
                     int num = 0;
                     while (*p1!=']'||*(p1-1)=='\\') {
-                        if (*p1!='\\') num++;
+                        if (*p1!='\\') {
+                            if (*p1=='-') num--;
+                            else num++;
+                        }
                         p1++;
                     }
 
@@ -281,6 +290,11 @@ tre_pattern* tre_compile(char*re)
                         } else {
                             /* 特殊字符转义 */
                             switch (*p1) {
+                                case'-':
+                                    if (index==0) {} //TODO:ERROR
+                                    _buf[index-1].tlen = 3;
+                                    p1++;
+                                    break;
                                 case'*':case'.':case'+':case'?':case'(':case')':
                                 case'[':case']':case'{':case'}':case'^':case'$':
                                 case':':case'|':
@@ -328,6 +342,11 @@ tre_pattern* tre_compile(char*re)
                                 default:
                                     *pr++ = *p1++;
                             }
+                        } else if (_buf[i].tlen==3) {
+                            // for [a-z]
+                            *pr++ = '-';
+                            *pr++ = *p1++;
+                            p1++;
                         }
                         *pr++ = *p1++;
                         /* 跳转指令部分 */
@@ -344,7 +363,13 @@ tre_pattern* tre_compile(char*re)
                     /* 写入末尾元素 */
                     *pr++ = *p1++;
                     if (_buf[num-1].tlen==2) *pr++ = *p1++;
+                    else if (_buf[num-1].tlen==3) {
+                        *pr = *(pr-1);
+                        *(pr-1) = '-';
+                        *++pr = *p1++;
+                    }
 
+                    /* 定位p指针，并将末尾字符写为] */
                     p = p1;
                     *pr++ = *p;
 
@@ -571,6 +596,14 @@ tre_Match* tre_match(tre_pattern*re,char*s)
                 c[0] = '\\';
                 c[1] = *++p;
                 goto _def;
+            case '-'  :
+                /* 匹配 [a-z] */
+                if (!(*s>=*(p+1)&&*s<=*(p+2))) {
+                    goto _failed;
+                }
+                s++;
+                p+=2;
+                break;
             case '$'  :
                 if (*s) _exitmatch();
                 break;
@@ -579,11 +612,12 @@ tre_Match* tre_match(tre_pattern*re,char*s)
             default:
                 c[0] = *p;
 _def:           if (!match(c,*s)) {
-                    if (top<0) _exitmatch();
+_failed:            if (top<0) _exitmatch();
                     p = stack[top].re+1;
                     s = stack[top--].s;
 
                     int _cout = 1;
+                    /* 跳过回溯后遭遇的组 */
                     if (*p=='('||*p=='[') {
                         char _signl=*p,_signr;
                         if (_signl=='(') _signr = ')';
@@ -594,7 +628,9 @@ _def:           if (!match(c,*s)) {
                             if (*p==_signl) _cout++;
                             else if (*p==_signr) _cout--;
                         }
-                    }
+                    /* 跳过 - 及其后的俩字符，为[a-z]语法而设定 */
+                    } else if (*p=='-') p+=2;
+
                     if (*p=='\\') p++;
                     if (*(p+1)==':') {
                         if (*(p+2)=='j') {
@@ -660,8 +696,8 @@ void tre_freematch(tre_Match*m)
  */
 int main(int argc,char* argv[])
 {
-    char regex[] = "((aa)|b(b)b|d)[ab.c](((?P<aa>.)*3)?3)$";
-    char text[]  = "bbb.11333";
+    char regex[] = "[a-z0-9]((aa)|b(b)b|d)[ab.c](((?P<aa>.)*3)?3)a-bc$";
+    char text[]  = "5bbb.11333a-bc";
 
     /* 用法：
      * 编译表达式
