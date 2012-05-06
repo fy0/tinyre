@@ -33,11 +33,16 @@
 #define pc(c) printf("_%c",c)
 #define _p(x) printf("%s\n",x)
 
-/* 回溯栈节点 */
+/* 回溯栈节点，此栈一定被使用 */
 typedef struct btstack_node {
     char* re;
     char* s;
 } btstack_node;
+
+/* 次等回溯栈节点，此栈不一定被使用 */
+typedef struct sec_btstack_node {
+    int ecx;
+} sec_btstack_node;
 
 /* 内部匹配使用的组 */
 typedef struct _tre_group {
@@ -143,28 +148,32 @@ tre_pattern* tre_compile(char*re)
 
         /* 首先预测编译后长度，并据此为buf申请内存 */
         /* 全长，冒号，括号，问号，星号，加号，方括号，竖线，
-         * 连字符 */
+         * 连字符，左花括号 */
         int len=0,cout_colon=0,cout_parentheses=0,cout_qsmark=0,
             cout_star=0,cout_plus=0,cout_square=0,cout_vv=0,
-            cout_hyphen=0;
+            cout_hyphen=0,cout_opencurly=0;
         s_foreach(re,p) {
             len++;
             switch (*p) {
-                case ':': cout_colon++;break;
-                case '(': cout_parentheses++;break;
-                case '?': cout_qsmark++;break;
-                case '*': cout_star++;break;
-                case '+': cout_plus++;break;
-                case '[': cout_square++;break;
-                case '|': cout_vv++;break;
-                case '-': cout_hyphen++;break;
+                case '\\': len++;p++;break;
+                case ':' : cout_colon++;break;
+                case '(' : cout_parentheses++;break;
+                case '?' : cout_qsmark++;break;
+                case '*' : cout_star++;break;
+                case '+' : cout_plus++;break;
+                case '[' : cout_square++;break;
+                case '|' : cout_vv++;break;
+                case '-' : cout_hyphen++;break;
+                case '{' : cout_opencurly++;break;
             }
         }
         /* 这边的内存预算几乎是一塌糊涂 */
-        pr = ret = (char*)calloc(1,len+cout_colon+cout_qsmark+cout_star*7+cout_plus*8+cout_square*14+cout_vv*12+cout_hyphen+1);
+        pr = ret = (char*)calloc(1,len+cout_colon+cout_qsmark+cout_star*7+cout_plus*8+cout_square*14+cout_vv*12+cout_hyphen+cout_opencurly*5+1);
         if (cout_parentheses) {
             ptn->groups = (_tre_group*)calloc(1,cout_parentheses*sizeof(_tre_group));
         }
+        /* 开启次等回溯栈的标志 */
+        if (cout_opencurly) *pr++ = '{';
     }
     s_foreach(re,p) {
         switch (*p) {
@@ -280,6 +289,13 @@ tre_pattern* tre_compile(char*re)
                         int tlen,jlen;
                     } *_buf;
                     #endif
+
+                    if (*(p+1)=='^') {
+                        // 写入否定匹配指令 
+                        memcpy(pr,":n",2);
+                        pr+=2;
+                        //p++;
+                    }
 
                     p1 = p+1;
                     int index=0;
@@ -398,6 +414,194 @@ tre_pattern* tre_compile(char*re)
                     pg->end = pr;
                 }
                 goto _def;
+            case '{'  :
+                {
+                    char*p1;
+                    bool __b=false;
+
+                    for (p1=p+1;*p1!='}';p1++) {
+                        if (*p1==',') {
+                            __b=true;
+                            break;
+                        }
+                    }
+
+                    p1 = p+1;
+
+                    if (__b) {
+                        // 两个参数参数 a{x,y}
+                        char* p2=p1+1;
+                        while (*p2!=',') p2++;
+                        char __buf[p2-p1+1];
+                        __buf[p2-p1] = '\0';
+                        memcpy(__buf,p1,p2-p1);
+                        int x = atoi(__buf);
+
+                        p1 = p2+1;
+                        while (*p2!='}') p2++;
+                        char __buf2[p2-p1+1];
+                        __buf2[p2-p1] = '\0';
+                        memcpy(__buf2,p1,p2-p1);
+                        int y = atoi(__buf2);
+
+                        /* 开始工作前的杂活，下面大段代码来自?*+部分 */
+                        // 当前点到开头的偏移位置
+                        int offset = pr - ret;
+                        if (!offset) return NULL; // 这是表达式开头就给个 ?
+
+                        // 首先确定前方字符的开始位置
+                        char* start=NULL;
+                        if (offset==1) start = pr-1;
+                        else if ((*(pr-1)!=')'&&*(pr-1)!=']')||*(pr-2)=='\\') {
+                            if (*(pr-2)=='\\') start = pr - 2;
+                            else start = pr - 1;
+                        } else {
+                            char _signl,_signr = *(pr-1);
+                            if (_signr==')') _signl = '(';
+                            else _signl = '[';
+    
+                            char *p1 = pr-1;
+                            int _cout = 1;
+                            while (*p1!=_signl||_cout!=0) {
+                                p1--;
+                                if (*p1==_signr) _cout++;
+                                else if (*p1==_signl) _cout--;
+                            }
+                            start = p1;
+                        }
+                        
+                        // 申请缓存空间，len为括号内文本长度
+                        int len = pr-start;
+                        #ifndef  _MSC_VER
+                        char buf[len];
+                        #else
+                        char* buf = (char*)malloc(len*sizeof(char));
+                        #endif
+                        // 备份要被覆盖的字串
+                        memcpy(&buf,start,len);
+                        pr = start;
+
+                        /* 写入指令 */
+                        if (x==0) {
+                            memcpy(pr,":p",2);
+                            pr+=2;
+                        } else {
+                            memcpy(pr,":-:p",4);
+                            pr+=4;
+                        }
+
+                        // 恢复数据
+                        memcpy(pr,&buf,len);
+                        pr += len;
+                        // 写入跳转指令，参数一
+                        memcpy(pr,":c",2);
+                        pr+=2;
+                        char* _buf = (char*)malloc(11);
+                        // -2 是因为 :j 的长度是 2
+                        int _len = int2str(0-len-2,_buf);
+                        memcpy(pr,_buf,_len);
+                        pr += _len;
+                        *pr++ = ',';
+                        // 参数二
+                        _len = int2str(y,_buf);
+                        memcpy(pr,_buf,_len);
+                        pr += _len;
+                        *pr++ = ',';
+                        // 参数三
+                        _len = int2str(x,_buf);
+                        memcpy(pr,_buf,_len);
+                        pr += _len;
+                        *pr++ = ':';
+                        // 末尾的计数比较指令
+                        // 先写入y后写入x是为了优化
+                        memcpy(pr,":c",2);
+                        pr+=2;
+                        memcpy(pr,_buf,_len);
+                        pr += _len;
+                        *pr++ = ':';
+                        free(_buf);
+
+                        // 对前面的分组进行修正处理
+                        if (gtop>=0) {
+                            int _offset = (x!=0) ? 4:2;
+                            for (int i=0;i<=gtop;i++) {
+                                char *_pos = ptn->groups[i].start;
+                                if (_pos>=start&&_pos<=pr) {
+                                    ptn->groups[i].start += _offset;
+                                }
+                                _pos = ptn->groups[i].end;
+                                if (_pos>=start&&_pos<=pr) {
+                                    ptn->groups[i].end += _offset;
+                                }
+                            }
+                        }
+                    } else {
+                        // 单个参数 a{x}
+                        char* p2=p1+1;
+                        while (*p2!='}') p2++;
+                        char __buf[p2-p1+1];
+                        __buf[p2-p1] = '\0';
+                        memcpy(__buf,p1,p2-p1);
+                        int xy = atoi(__buf);
+
+                        // 当前点到开头的偏移位置
+                        int offset = pr - ret;
+                        if (!offset) return NULL; // 这是表达式开头就给个 ?
+
+                        // 首先确定前方字符的开始位置
+                        char* start=NULL;
+                        if (offset==1) start = pr-1;
+                        else if ((*(pr-1)!=')'&&*(pr-1)!=']')||*(pr-2)=='\\') {
+                            if (*(pr-2)=='\\') start = pr - 2;
+                            else start = pr - 1;
+                        } else {
+                            char _signl,_signr = *(pr-1);
+                            if (_signr==')') _signl = '(';
+                            else _signl = '[';
+    
+                            char *p1 = pr-1;
+                            int _cout = 1;
+                            while (*p1!=_signl||_cout!=0) {
+                                p1--;
+                                if (*p1==_signr) _cout++;
+                                else if (*p1==_signl) _cout--;
+                            }
+                            start = p1;
+                        }
+
+                        // 写入跳转指令，参数一
+                        int len = pr-start;
+                        memcpy(pr,":c",2);
+                        pr+=2;
+                        char* _buf = (char*)malloc(11);
+                        // -2 是因为 :j 的长度是 2
+                        int _len = int2str(0-len-2,_buf);
+                        memcpy(pr,_buf,_len);
+                        pr += _len;
+                        *pr++ = ',';
+                        // 参数二
+                        _len = int2str(xy,_buf);
+                        memcpy(pr,_buf,_len);
+                        pr += _len;
+                        *pr++ = ',';
+                        // 参数三
+                        _len = int2str(xy,_buf);
+                        memcpy(pr,_buf,_len);
+                        pr += _len;
+                        *pr++ = ':';
+                        // 末尾的计数比较指令
+                        // 先写入y后写入x是为了优化
+                        memcpy(pr,":c",2);
+                        pr+=2;
+                        memcpy(pr,_buf,_len);
+                        pr += _len;
+                        *pr++ = ':';
+                        free(_buf);
+                    }
+                    // 把后续无关文本跳过
+                    while (*p!='}') p++;
+                    break;
+                }
             case '|'  :
                 {
                     if (pr - ret == 0) return NULL;
@@ -490,14 +694,13 @@ match(char re[2],char c)
     return false;
 }
 
-#define _exitmatch() {free(g_text);free(g_len);free(ret->groups);free(ret);return NULL;}
+#define _exitmatch() {free(g_text);free(g_len);free(ret->groups);free(ret);free(sec_stack);return NULL;}
 tre_Match* tre_match(tre_pattern*re,char*s)
 {
     int len = strlen(s);
     if (!len) return NULL;
 
     tre_Match* ret = (tre_Match*)calloc(1,sizeof(tre_Match));
-
     len = len > strlen(re->re) ? len : strlen(re->re);
 
     #ifndef  _MSC_VER
@@ -506,6 +709,15 @@ tre_Match* tre_match(tre_pattern*re,char*s)
     btstack_node* stack = (btstack_node*)malloc(len*sizeof(btstack_node));
     #endif
     int top = -1;
+
+    /* 次等回溯栈，当存在{}时被启用 */
+    sec_btstack_node* sec_stack = NULL;
+
+    /* 否定匹配开关，此设计暂时冻结，容我三思…… */
+    bool nm = false;
+
+    /* 计数变量，用于a{3}语法... */
+    int ecx=0;
 
     char *p,*start=s;
     char c[2];
@@ -536,6 +748,8 @@ tre_Match* tre_match(tre_pattern*re,char*s)
                 }
                 break;
             case ')'  :
+                /* 复位否定匹配 */
+                if (nm) nm = false;
                 /* 组的末尾 */
                 for (int i=0;i<re->groupnum;i++) {
                     if (re->groups[i].end==p) {
@@ -544,7 +758,11 @@ tre_Match* tre_match(tre_pattern*re,char*s)
                     }
                 }
                 break;
-            case '['  : case ']'  :
+            case '['  :
+                break;
+            case ']'  :
+                /* 复位否定匹配 */
+                if (nm) nm = false;
                 break;
             case ':'  :
                 switch (*++p) {
@@ -552,6 +770,7 @@ tre_Match* tre_match(tre_pattern*re,char*s)
                         if (!_dumpstack) {
                             stack[++top].re = p;
                             stack[top].s = s;
+                            if (sec_stack) sec_stack[top].ecx = ecx;
                         } else _dumpstack = false;
                         break;
                     case '-' :
@@ -589,7 +808,80 @@ tre_Match* tre_match(tre_pattern*re,char*s)
                                     p = p1+i;
                                 }
                             }
+                            break;
                         }
+                    case 'c' :
+                        {
+                            char* p1 = p+1;
+                            bool __b=true;
+                            for (char*p2=p1;*p2!=':';p2++) {
+                                if (*p2==',') {
+                                    __b = false;
+                                    break;
+                                }
+                            }
+                            if (__b) {
+                                // 跳转比较指令
+                                p1 = p+1;
+                                while (*p1!=':') p1++;
+                                #ifndef  _MSC_VER
+                                char _buf[p1-p];
+                                #else
+                                char* _buf = (char*)malloc((p1-p)*sizeof(char));
+                                #endif
+                                _buf[p1-p-1] = '\0';
+                                memcpy(_buf,p+1,p1-p-1);
+                                int n = atoi(_buf);
+                                p = p1;
+
+                                if (ecx<n) {
+                                    goto _failed;
+                                    ecx=0;
+                                }
+                                break;
+                            } else {
+                                // 计数跳转指令
+                                char* p2=p1;
+                                while (*p2!=':') p2++;
+                                #ifndef  _MSC_VER
+                                char _buf[p2-p];
+                                #else
+                                char* _buf = (char*)malloc((p1-p2)*sizeof(char));
+                                #endif
+                                p2 = p;
+                                // 获取首个参数
+                                while (*p1!=',') p1++;
+                                _buf[p1-p2-1] = '\0';
+                                memcpy(_buf,p2+1,p1-p2-1);
+                                int i = atoi(_buf);
+                                p2 = p1++;
+                                // 获取第二个参数
+                                while (*p1!=',') p1++;
+                                _buf[p1-p2-1] = '\0';
+                                memcpy(_buf,p2+1,p1-p2-1);
+                                int y = atoi(_buf);
+                                p2 = p1++;
+                                // 获取第三个参数
+                                while (*p1!=':') p1++;
+                                _buf[p1-p2-1] = '\0';
+                                memcpy(_buf,p2+1,p1-p2-1);
+                                int x = atoi(_buf);
+
+                                ecx++;
+                                if (ecx<=y) {
+                                    if (ecx<x) _dumpstack = true;
+                                    if (i<0) {
+                                        p += (i-2);
+                                    } else {
+                                        p = p1+i;
+                                    }
+                                }
+                            }
+                            break;
+                        }
+                    case 'n'  :
+                        nm = true;
+                        break;
                 }
                 break;
             case '\\' :
@@ -598,7 +890,10 @@ tre_Match* tre_match(tre_pattern*re,char*s)
                 goto _def;
             case '-'  :
                 /* 匹配 [a-z] */
-                if (!(*s>=*(p+1)&&*s<=*(p+2))) {
+                if (nm) {
+                    printf("匹配的文本是%c，否定匹配状态\n",*s);
+                }
+                if (nm==(*s>=*(p+1)&&*s<=*(p+2))) {
                     goto _failed;
                 }
                 s++;
@@ -609,10 +904,20 @@ tre_Match* tre_match(tre_pattern*re,char*s)
                 break;
             case '|'  :
                 break;
+            case '^'  :
+                /* 匹配文本开头 */
+                if (s!=start) goto _failed;
+                break;
+            case '{'  :
+                /* 开启次等回溯栈 */
+                if (!sec_stack) 
+                    sec_stack = (sec_btstack_node*)malloc(len*sizeof(sec_btstack_node));
+                break;
             default:
                 c[0] = *p;
-_def:           if (!match(c,*s)) {
+_def:           if (nm==match(c,*s)) {
 _failed:            if (top<0) _exitmatch();
+                    if (sec_stack) ecx = sec_stack[top].ecx;
                     p = stack[top].re+1;
                     s = stack[top--].s;
 
@@ -633,7 +938,7 @@ _failed:            if (top<0) _exitmatch();
 
                     if (*p=='\\') p++;
                     if (*(p+1)==':') {
-                        if (*(p+2)=='j') {
+                        if (*(p+2)=='j'||*(p+2)=='c') {
                             p+=2;
                             while (*p!=':') p++;
                         }
@@ -655,6 +960,7 @@ _failed:            if (top<0) _exitmatch();
 
     free(g_text);
     free(g_len);
+    free(sec_stack);
     ret->groups[0].text = strndup(start,s-start);
     return ret;
 }
@@ -687,17 +993,14 @@ void tre_freematch(tre_Match*m)
 /* tinyre
  * 这是一个从头设计的正则引擎。
  *
- * 当前仅支持 : . ? * + | $ () [] \D \d \S \s \W \w
+ * 当前支持 : . ? * + | $ () [] {} \D \d \S \s \W \w  及 分组
  *
- * 支持分组
- *
- * 值得注意：[] 不支持 [a-z] 语法
  *
  */
 int main(int argc,char* argv[])
 {
-    char regex[] = "[a-z0-9]((aa)|b(b)b|d)[ab.c](((?P<aa>.)*3)?3)a-bc$";
-    char text[]  = "5bbb.11333a-bc";
+    char regex[] = ".?^(a{2,4})[a-z0-9]((aa)|b(b)b|d)[ab.c](((?P<aa>.)*3)?3)a-bc$";
+    char text[]  = "aaafbbb.11333a-bc";
 
     /* 用法：
      * 编译表达式
