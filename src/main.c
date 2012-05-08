@@ -1,6 +1,6 @@
 /*
  * start : 2012-4-8 09:57
- * update: 2012-4-23
+ * update: 2012-5-8
  *
  * tinyre
  * 微型python风格正则表达式库
@@ -279,6 +279,38 @@ tre_pattern* tre_compile(char*re)
                         p1++;
                     }
 
+                    /* 否定匹配模式 */
+                    if (*(p+1)=='^') {
+                        // 写入否定匹配指令
+                        // 写入固定文本位置指令
+                        memcpy(pr,":n:f",4);
+                        pr+=4;
+                        p1 = p+2;
+                        while (*p1!=']'||*(p1-1)=='\\') {
+                            switch (*p1) {
+                                case '-':
+                                    *pr = *(pr-1);
+                                    *(pr-1) = '-';
+                                    *++pr = *p1++;
+                                    break;
+                                case'*':case'.':case'+':case'?':case'(':case')':
+                                case'[':case']':case'{':case'}':case'^':case'$':
+                                case':':case'|':
+                                    *pr++ = '\\';
+                                    *pr++ = *(++p1);
+                                    break;
+                                default:
+                                    *pr++ = *p1;
+                            }
+                            p1++;
+                        }
+                        memcpy(pr,":f",2);
+                        pr+=2;
+                        *pr++ = ']';
+                        p = p1;
+                        break;
+                    }
+
                     #ifndef  _MSC_VER
                     struct {
                         int tlen,jlen;
@@ -289,13 +321,6 @@ tre_pattern* tre_compile(char*re)
                         int tlen,jlen;
                     } *_buf;
                     #endif
-
-                    if (*(p+1)=='^') {
-                        // 写入否定匹配指令 
-                        memcpy(pr,":n",2);
-                        pr+=2;
-                        //p++;
-                    }
 
                     p1 = p+1;
                     int index=0;
@@ -388,7 +413,6 @@ tre_pattern* tre_compile(char*re)
                     /* 定位p指针，并将末尾字符写为] */
                     p = p1;
                     *pr++ = *p;
-
                     break;
                 }
             case '('  :
@@ -713,7 +737,9 @@ tre_Match* tre_match(tre_pattern*re,char*s)
     /* 次等回溯栈，当存在{}时被启用 */
     sec_btstack_node* sec_stack = NULL;
 
-    /* 否定匹配开关，此设计暂时冻结，容我三思…… */
+    /* 文本位置固定开关，开启后s将不会再自增 */
+    bool lockpos = false;
+    /* 否定匹配开关 */
     bool nm = false;
 
     /* 计数变量，用于a{3}语法... */
@@ -762,7 +788,9 @@ tre_Match* tre_match(tre_pattern*re,char*s)
                 break;
             case ']'  :
                 /* 复位否定匹配 */
-                if (nm) nm = false;
+                if (nm) {
+                    nm = false;
+                }
                 break;
             case ':'  :
                 switch (*++p) {
@@ -790,6 +818,16 @@ tre_Match* tre_match(tre_pattern*re,char*s)
                                     if (*p2=='('&&*(p2-1)=='\\') _cout++;
                                     else if (*p2==')'&&*(p2-1)=='\\') _cout--;
                                     p2++;
+                                }
+                                p = p2-1;
+                            /* 左向跳转指令 :jl: */
+                            } else if (*p1=='l') {
+                                char *p2 = p-2;
+                                int _cout = 0; 
+                                while ((*p2!='('||*(p2-1)=='\\'||_cout!=0)&&p2!=re->re) {
+                                    if (*p2==')'&&*(p2-1)=='\\') _cout++;
+                                    else if (*p2=='('&&*(p2-1)=='\\') _cout--;
+                                    p2--;
                                 }
                                 p = p2-1;
                             } else {
@@ -879,6 +917,15 @@ tre_Match* tre_match(tre_pattern*re,char*s)
                             }
                             break;
                         }
+                    /* 固定文本位置指令 */
+                    case 'f'  :
+                        lockpos = !lockpos;
+                        if (!lockpos) s++;
+                        break;
+                    case 's' :
+                        break;
+                    case 'l' :
+                        break;
                     case 'n'  :
                         nm = true;
                         break;
@@ -917,6 +964,8 @@ tre_Match* tre_match(tre_pattern*re,char*s)
                 c[0] = *p;
 _def:           if (nm==match(c,*s)) {
 _failed:            if (top<0) _exitmatch();
+                    if (lockpos) lockpos = false;
+                    if (nm) nm = false;
                     if (sec_stack) ecx = sec_stack[top].ecx;
                     p = stack[top].re+1;
                     s = stack[top--].s;
@@ -943,7 +992,7 @@ _failed:            if (top<0) _exitmatch();
                             while (*p!=':') p++;
                         }
                     }
-                } else s++;
+                } else if (!lockpos) s++;
                 break;
         }
     }
@@ -999,8 +1048,8 @@ void tre_freematch(tre_Match*m)
  */
 int main(int argc,char* argv[])
 {
-    char regex[] = ".?^(a{2,4})[a-z0-9]((aa)|b(b)b|d)[ab.c](((?P<aa>.)*3)?3)a-bc$";
-    char text[]  = "aaafbbb.11333a-bc";
+    char regex[] = ".?^[^ad]?(a{2,4})[a-z0-9]((aa)|b(b)b|d)[ab.c](((?P<aa>.)*3)?3)a-bc$";
+    char text[]  = "caaafbbb.11333a-bc";
 
     /* 用法：
      * 编译表达式
