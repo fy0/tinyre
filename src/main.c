@@ -42,6 +42,7 @@ typedef struct btstack_node {
 /* 次等回溯栈节点，此栈不一定被使用 */
 typedef struct sec_btstack_node {
     int ecx;
+    bool nm;
 } sec_btstack_node;
 
 /* 内部匹配使用的组 */
@@ -140,6 +141,9 @@ tre_pattern* tre_compile(char*re)
     tre_pattern* ptn;
 
     int gtop = -1;
+    /* 以下两个变量仅为不消耗字符串的表达式存在 */
+    bool useslot = false;
+    int saveagain = 0;
 
     if (!re) return NULL;
     else {
@@ -148,17 +152,17 @@ tre_pattern* tre_compile(char*re)
 
         /* 首先预测编译后长度，并据此为buf申请内存 */
         /* 全长，冒号，括号，问号，星号，加号，方括号，竖线，
-         * 连字符，左花括号 */
+         * 连字符，左花括号，否定组即(?!abc) */
         int len=0,cout_colon=0,cout_parentheses=0,cout_qsmark=0,
             cout_star=0,cout_plus=0,cout_square=0,cout_vv=0,
-            cout_hyphen=0,cout_opencurly=0;
+            cout_hyphen=0,cout_opencurly=0,cout_negate=0;
         s_foreach(re,p) {
             len++;
             switch (*p) {
                 case '\\': len++;p++;break;
                 case ':' : cout_colon++;break;
                 case '(' : cout_parentheses++;break;
-                case '?' : cout_qsmark++;break;
+                case '?' : cout_qsmark++;if(p!=re&&*(p-1)=='('&&*(p+1)=='!')cout_negate++;break;
                 case '*' : cout_star++;break;
                 case '+' : cout_plus++;break;
                 case '[' : cout_square++;break;
@@ -173,7 +177,7 @@ tre_pattern* tre_compile(char*re)
             ptn->groups = (_tre_group*)calloc(1,cout_parentheses*sizeof(_tre_group));
         }
         /* 开启次等回溯栈的标志 */
-        if (cout_opencurly) *pr++ = '{';
+        if (cout_opencurly||cout_negate) *pr++ = '{';
     }
     s_foreach(re,p) {
         switch (*p) {
@@ -291,7 +295,8 @@ tre_pattern* tre_compile(char*re)
                                 case '-':
                                     *pr = *(pr-1);
                                     *(pr-1) = '-';
-                                    *++pr = *p1++;
+                                    *++pr = *++p1;
+                                    pr++;
                                     break;
                                 case'*':case'.':case'+':case'?':case'(':case')':
                                 case'[':case']':case'{':case'}':case'^':case'$':
@@ -419,6 +424,7 @@ tre_pattern* tre_compile(char*re)
                 gtop++;
                 ptn->groups[gtop].start = pr;
 
+                *(pr++) = '(';
                 if (*(p+1)=='?') {
                     if (*(p+2)=='P'&&*(p+3)=='<') {
                         char*p1 = p+4;
@@ -426,12 +432,26 @@ tre_pattern* tre_compile(char*re)
                         if (p1==p+4) {}; // TODO:这里报错
                         ptn->groups[gtop].name = strndup(p+4,p1-(p+4));
                         p = p1;
+                    } else if (*(p+2)=='!') {
+                        gtop--;
+                        if (!useslot) {
+                            memcpy(pr,":n:s",4);
+                            pr+=4;
+                        } else saveagain++;
+                        useslot = true;
+                        p = p+2;
                     }
-                    *(pr++) = '(';
                     break;
-                }
+                } 
                 goto _def;
             case ')'  :
+                if (useslot){
+                    if (!saveagain) {
+                        memcpy(pr,":l",2);
+                        pr += 2;
+                        useslot = false;
+                    } else saveagain--;
+                } else 
                 if (gtop>=0) {
                     _tre_group*pg = ptn->groups + gtop;
                     while (pg->end&&pg>=ptn->groups) pg--;
@@ -744,6 +764,8 @@ tre_Match* tre_match(tre_pattern*re,char*s)
 
     /* 计数变量，用于a{3}语法... */
     int ecx=0;
+    /* 存储槽，用于不消耗字符串的东西 */
+    char* slot=NULL;
 
     char *p,*start=s;
     char c[2];
@@ -798,7 +820,10 @@ tre_Match* tre_match(tre_pattern*re,char*s)
                         if (!_dumpstack) {
                             stack[++top].re = p;
                             stack[top].s = s;
-                            if (sec_stack) sec_stack[top].ecx = ecx;
+                            if (sec_stack) {
+                                sec_stack[top].nm = nm;
+                                sec_stack[top].ecx = ecx;
+                            }
                         } else _dumpstack = false;
                         break;
                     case '-' :
@@ -923,8 +948,11 @@ tre_Match* tre_match(tre_pattern*re,char*s)
                         if (!lockpos) s++;
                         break;
                     case 's' :
+                        if (!slot) slot = s;
                         break;
                     case 'l' :
+                        s = slot;
+                        slot = NULL;
                         break;
                     case 'n'  :
                         nm = true;
@@ -937,13 +965,10 @@ tre_Match* tre_match(tre_pattern*re,char*s)
                 goto _def;
             case '-'  :
                 /* 匹配 [a-z] */
-                if (nm) {
-                    printf("匹配的文本是%c，否定匹配状态\n",*s);
-                }
                 if (nm==(*s>=*(p+1)&&*s<=*(p+2))) {
                     goto _failed;
                 }
-                s++;
+                if (!lockpos) s++;
                 p+=2;
                 break;
             case '$'  :
@@ -965,8 +990,10 @@ tre_Match* tre_match(tre_pattern*re,char*s)
 _def:           if (nm==match(c,*s)) {
 _failed:            if (top<0) _exitmatch();
                     if (lockpos) lockpos = false;
-                    if (nm) nm = false;
-                    if (sec_stack) ecx = sec_stack[top].ecx;
+                    if (sec_stack) {
+                        nm = sec_stack[top].nm;
+                        ecx = sec_stack[top].ecx;
+                    } else nm = false;
                     p = stack[top].re+1;
                     s = stack[top--].s;
 
@@ -1042,14 +1069,13 @@ void tre_freematch(tre_Match*m)
 /* tinyre
  * 这是一个从头设计的正则引擎。
  *
- * 当前支持 : . ? * + | $ () [] {} \D \d \S \s \W \w  及 分组
- *
+ * 当前支持 : . ? * + | ^ $ () (?!) [] {} \D \d \S \s \W \w  及 分组
  *
  */
 int main(int argc,char* argv[])
 {
-    char regex[] = ".?^[^ad]?(a{2,4})[a-z0-9]((aa)|b(b)b|d)[ab.c](((?P<aa>.)*3)?3)a-bc$";
-    char text[]  = "caaafbbb.11333a-bc";
+    char regex[] = ".?^a?(?!cb)([^1-9][^ac])(a{2,4})[a-z0-9]((aa)|b(b)b|d)[ab.c](((?P<aa>.)*3)?3)a-bc$";
+    char text[]  = "acbaaafbbb.11333a-bc";
 
     /* 用法：
      * 编译表达式
