@@ -229,8 +229,66 @@ tre_pattern* tre_compile(char*re)
                     // 备份要被覆盖的字串
                     memcpy(&buf,start,len);
                     pr = start;
-                    // 根据运算符输入指令
+                    /* 确定运算符 */
                     char _op = *p;
+                    /* 判定是否非贪婪匹配 */
+                    bool greed = true;
+                    if (*(p+1)=='?') {
+                        greed = false;
+                    }
+                    /* 非贪婪分支 */
+                    if (!greed) {
+                        int _offset = 0;
+                        // 根据运算符输入指令
+                        if (_op=='+') {
+                            memcpy(pr,":|",2);
+                            pr+=2;
+                        } else if (_op=='?') {
+                            memcpy(pr,":p",2);
+                            pr += 2;
+                        }
+                        memcpy(pr,":j",2);
+                        pr+=2;
+                        char* _buf = (char*)malloc(11);
+                        _offset = int2str( _op=='?' ? len : len+2,_buf);
+                        memcpy(pr,_buf,_offset);
+                        free(_buf);
+                        pr += _offset;
+                        *pr++ = ':';
+                        if (_op!='*') _offset += 2;
+                        _offset += 3;
+                        if (_op!='?') {
+                            memcpy(pr,":o",2);
+                            pr += 2;
+                            _offset+=2;
+                        }
+
+                        // 恢复数据
+                        memcpy(pr,&buf,len);
+                        pr += len;
+
+                        if (_op!='?') {
+                            *pr++ = ':';
+                            *pr++ = '<';
+                        }
+
+                        // 对前面的分组进行修正处理
+                        if (gtop>=0) {
+                            for (int i=0;i<=gtop;i++) {
+                                char *_pos = ptn->groups[i].start;
+                                if (_pos>=start&&_pos<=pr) {
+                                    ptn->groups[i].start += _offset;
+                                }
+                                _pos = ptn->groups[i].end;
+                                if (_pos>=start&&_pos<=pr) {
+                                    ptn->groups[i].end += _offset;
+                                }
+                            }
+                        }
+                        p++;
+                        break;
+                    }
+                    // 根据运算符输入指令
                     if (*p=='+') {
                         memcpy(pr,":-:p",4);
                         pr+=4;
@@ -424,8 +482,8 @@ tre_pattern* tre_compile(char*re)
                 gtop++;
                 ptn->groups[gtop].start = pr;
 
-                *(pr++) = '(';
                 if (*(p+1)=='?') {
+                    *(pr++) = '(';
                     if (*(p+2)=='P'&&*(p+3)=='<') {
                         char*p1 = p+4;
                         while (*p1!='>') p1++;
@@ -781,6 +839,7 @@ tre_Match* tre_match(tre_pattern*re,char*s)
     }
 
     bool _dumpstack = false;
+    bool _dumpjmp = false;
 
     ret->groups = (tre_group*)calloc(re->groupnum+1,sizeof(tre_group));
 
@@ -826,11 +885,45 @@ tre_Match* tre_match(tre_pattern*re,char*s)
                             }
                         } else _dumpstack = false;
                         break;
+                    case '<' :
+                        if (!_dumpstack) {
+                            char* start = NULL;
+                            char* p1 = p - 1;
+                            if ((*(p1-1)!=')'&&*(p1-1)!=']')||*(p1-2)=='\\') {
+                                if (*(p1-2)=='\\') start = p1 - 2;
+                                else start = p1 - 1;
+                            } else {
+                                char _signl,_signr = *(p1-1);
+                                if (_signr==')') _signl = '(';
+                                else _signl = '[';
+
+                                p1--;
+                                int _cout = 1;
+                                while (*p1!=_signl||_cout!=0) {
+                                    p1--;
+                                    if (*p1==_signr) _cout++;
+                                    else if (*p1==_signl) _cout--;
+                                }
+                                start = p1;
+                            }
+                            stack[++top].re = start - 2;
+                            stack[top].s = s;
+                            if (sec_stack) {
+                                sec_stack[top].nm = nm;
+                                sec_stack[top].ecx = ecx;
+                            }
+                        } else _dumpstack = false;
+                        break;
                     case '-' :
                         _dumpstack = true;
                         break;
                     case 'j' :
                         {
+                            if (_dumpjmp) {
+                                _dumpjmp = false;
+                                while (*p!=':') p++;
+                                break;
+                            }
                             char* p1 = p+1;
                             /* 右向跳转指令 :jr:
                              * 作用:将指针跳转到后面的括号
@@ -875,6 +968,10 @@ tre_Match* tre_match(tre_pattern*re,char*s)
                         }
                     case 'c' :
                         {
+                            if (_dumpjmp) {
+                                _dumpjmp = false;
+                                break;
+                            }
                             char* p1 = p+1;
                             bool __b=true;
                             for (char*p2=p1;*p2!=':';p2++) {
@@ -957,6 +1054,11 @@ tre_Match* tre_match(tre_pattern*re,char*s)
                     case 'n'  :
                         nm = true;
                         break;
+                    case '|'  :
+                        _dumpjmp = true;
+                        break;
+                    case 'o'  :
+                        break;
                 }
                 break;
             case '\\' :
@@ -1019,6 +1121,13 @@ _failed:            if (top<0) _exitmatch();
                             while (*p!=':') p++;
                         }
                     }
+                    /* 为非贪婪匹配中"??"情况设定的跳过 */
+                    if (*(p)==':') {
+                        if (*(p+1)=='j'||*(p+1)=='c') {
+                            p++;
+                            while (*p!=':') p++;
+                        }
+                    }
                 } else if (!lockpos) s++;
                 break;
         }
@@ -1074,8 +1183,8 @@ void tre_freematch(tre_Match*m)
  */
 int main(int argc,char* argv[])
 {
-    char regex[] = ".?^a?(?!cb)([^1-9][^ac])(a{2,4})[a-z0-9]((aa)|b(b)b|d)[ab.c](((?P<aa>.)*3)?3)a-bc$";
-    char text[]  = "acbaaafbbb.11333a-bc";
+    char regex[] = ".?^d+?a?(?!cb)([^1-9][^ac])(a{2,4})[a-z0-9]((aa)|b(b)b|d)[ab.c](((?P<aa>.)*3)?3)a-bce*?";
+    char text[]  = "dacbaaafbbb.11333a-bceee";
 
     /* 用法：
      * 编译表达式
