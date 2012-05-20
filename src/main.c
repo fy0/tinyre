@@ -47,6 +47,7 @@ typedef struct sec_btstack_node {
 
 /* 内部匹配使用的组 */
 typedef struct _tre_group {
+    bool fake;
     char* name;
     char* start;
     char* end;
@@ -499,7 +500,7 @@ tre_pattern* tre_compile(char*re)
                         useslot = true;
                         p += 2;
                     } else if (*(p+2)==':') {
-                        /* TODO:未完成 */
+                        ptn->groups[gtop].fake = true;
                         p += 2;
                     } else if (*(p+2)=='#') {
                         gtop--;
@@ -523,11 +524,16 @@ tre_pattern* tre_compile(char*re)
                         pr += 2;
                         useslot = false;
                     } else saveagain--;
-                } else 
-                if (gtop>=0) {
+                } else if (gtop>=0) {
                     _tre_group*pg = ptn->groups + gtop;
                     while (pg->end&&pg>=ptn->groups) pg--;
-                    pg->end = pr;
+                    if (!pg->fake) pg->end = pr;
+                    else {
+                        for (;pg<=ptn->groups + gtop;pg++) {
+                            memcpy(pg,pg+1,sizeof(_tre_group));
+                        }
+                        gtop--;
+                    }
                 }
                 goto _def;
             case '{'  :
@@ -810,7 +816,7 @@ match(char re[2],char c)
     return false;
 }
 
-#define _exitmatch() {free(g_text);free(g_len);free(ret->groups);free(ret);free(sec_stack);return NULL;}
+#define _exitmatch() {free(g_start);free(g_text);free(g_len);free(ret->groups);free(ret);free(sec_stack);return NULL;}
 tre_Match* tre_match(tre_pattern*re,char*s)
 {
     int len = strlen(s);
@@ -843,10 +849,12 @@ tre_Match* tre_match(tre_pattern*re,char*s)
     char c[2];
 
     /* 提供对组机制的支持 */
+    const char** g_start = NULL;
     const char** g_text = NULL;
     int *g_len = NULL;
 
     if (re->groupnum) {
+        g_start = (const char**)calloc(re->groupnum,sizeof(char*));
         g_text  = (const char**)calloc(re->groupnum,sizeof(char*));
         g_len   = (int*)calloc(re->groupnum,sizeof(int));
         ret->groupnum = re->groupnum;
@@ -863,7 +871,7 @@ tre_Match* tre_match(tre_pattern*re,char*s)
                 /* 接下来的东西在组内 */
                 for (int i=0;i<re->groupnum;i++) {
                     if (re->groups[i].start==p) {
-                        if (*s) g_text[i] = s;
+                        if (*s) g_start[i] = s;
                         break;
                     }
                 }
@@ -874,7 +882,8 @@ tre_Match* tre_match(tre_pattern*re,char*s)
                 /* 组的末尾 */
                 for (int i=0;i<re->groupnum;i++) {
                     if (re->groups[i].end==p) {
-                        g_len[i] = s-g_text[i];
+                        g_text[i] = g_start[i];
+                        g_len[i] = s - g_text[i];
                         break;
                     }
                 }
@@ -1125,18 +1134,18 @@ _failed:            if (top<0) _exitmatch();
                             if (*p==_signl) _cout++;
                             else if (*p==_signr) _cout--;
                         }
-                    /* 跳过 - 及其后的俩字符，为[a-z]语法而设定 */
-                    } else if (*p=='-') p+=2;
-
-                    if (*p=='\\') p++;
+                    /* 若不为组，跳过-及其后的俩字符，或跳过转义 */
+                    } else {
+                        if (*p=='-') p+=2;
+                        else if (*p=='\\') p++;
+                    }
                     if (*(p+1)==':') {
                         if (*(p+2)=='j'||*(p+2)=='c') {
                             p+=2;
                             while (*p!=':') p++;
                         }
-                    }
                     /* 为非贪婪匹配中"??"情况设定的跳过 */
-                    if (*(p)==':') {
+                    } else if (*(p)==':') {
                         if (*(p+1)=='j'||*(p+1)=='c') {
                             p++;
                             while (*p!=':') p++;
@@ -1197,7 +1206,7 @@ void tre_freematch(tre_Match*m)
  */
 int main(int argc,char* argv[])
 {
-    char regex[] = ".?^d+?(?#asdasd)a?(?!ad)([^1-9][^ac])(a{2,4})[a-z0-9]((?:aa)|b(b)b|d)[ab.c](((?P<aa>.)*3)?3)a-bce*?";
+    char regex[] = ".?^d+?(?#asdasd)a?(?!ad)([^1-9][^ac])(?:a{2,4})[a-z0-9]((aa)|b(b)b|d)[ab.c](((?P<aa>.*)3)?3)a-bce*?";
     char text[]  = "dacbaaafbbb.11333a-bceee";
 
    /* 用法：
