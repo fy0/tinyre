@@ -497,7 +497,21 @@ tre_pattern* tre_compile(char*re)
                             pr+=4;
                         } else saveagain++;
                         useslot = true;
-                        p = p+2;
+                        p += 2;
+                    } else if (*(p+2)==':') {
+                        /* TODO:未完成 */
+                        p += 2;
+                    } else if (*(p+2)=='#') {
+                        gtop--;
+                        char *p1 = p+3;
+                        int _cout = 0;
+                        while (*p1&&(*p1!=')'||*(p1-1)=='\\'||_cout!=0)) {
+                            if (*p1=='('&&*(p1-1)=='\\') _cout++;
+                            else if (*p1==')'&&*(p1-1)=='\\') _cout--;
+                            p1++;
+                        }
+                        pr--;
+                        p = p1;
                     }
                     break;
                 } 
@@ -1045,7 +1059,7 @@ tre_Match* tre_match(tre_pattern*re,char*s)
                         if (!lockpos) s++;
                         break;
                     case 's' :
-                        if (!slot) slot = s;
+                        slot = s;
                         break;
                     case 'l' :
                         s = slot;
@@ -1183,10 +1197,10 @@ void tre_freematch(tre_Match*m)
  */
 int main(int argc,char* argv[])
 {
-    char regex[] = ".?^d+?a?(?!cb)([^1-9][^ac])(a{2,4})[a-z0-9]((aa)|b(b)b|d)[ab.c](((?P<aa>.)*3)?3)a-bce*?";
+    char regex[] = ".?^d+?(?#asdasd)a?(?!ad)([^1-9][^ac])(a{2,4})[a-z0-9]((?:aa)|b(b)b|d)[ab.c](((?P<aa>.)*3)?3)a-bce*?";
     char text[]  = "dacbaaafbbb.11333a-bceee";
 
-    /* 用法：
+   /* 用法：
      * 编译表达式
      * 1. tre_pattern* re = tre_compile(regex);
      * 匹配文本
