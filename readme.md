@@ -4,7 +4,19 @@
 A tiny regex engine.  
 一个小型的有点特别的 python 风格正则引擎。  
 
-当前能够支持 . ? * + | ^ $ () (?!) [] {} \D \d \S \s \W \w  及 分组
+当前能够支持 . ? * + | ^ $ () (?!) (?#) (?:) [] {} \D \d \S \s \W \w  及 分组
+
+## 用于 Python
+
+现在你可以将这个库用在python2.7中了。  
+
+执行:
+`cd src  
+make -f Makefile.pymod  `
+
+随后把tre.py和编译出来的_tre.so放在一起就能用了。  
+
+用法参考原版re模块。
 
 ## 文档
 

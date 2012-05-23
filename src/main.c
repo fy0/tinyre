@@ -28,6 +28,10 @@
 #include <assert.h>
 #include <ctype.h>
 
+#ifdef pylib_27
+#include <python2.7/Python.h>
+#endif
+
 #define s_foreach(__s,__p) for (__p = __s;*__p;__p++)
 
 #define pc(c) printf("_%c",c)
@@ -91,7 +95,7 @@ strndup (const char *s, size_t n)
 }
 #endif
 
-bool dotall = false;
+bool dotall = true;
 
 static int
 int2str(int val,char*buf)
@@ -1173,6 +1177,13 @@ _failed:            if (top<0) _exitmatch();
     return ret;
 }
 
+tre_Match* _tre_match(char*re,char*s)
+{
+    tre_pattern* ret = tre_compile(re);
+    if (!ret) return NULL;
+    return tre_match(ret,s);
+}
+
 void tre_freepattern(tre_pattern*re)
 {
     if (re->groupnum) {
@@ -1197,6 +1208,78 @@ void tre_freematch(tre_Match*m)
     free(m->groups);
     free(m);
 }
+
+#ifdef pylib_27
+void py_tre_freepattern(PyObject* obj)
+{
+    tre_freepattern(PyCapsule_GetPointer(obj,"tre_pattern"));
+}
+
+static PyObject* py_tre_compile(PyObject *self,PyObject* args)
+{
+    char* re;
+    if(!PyArg_ParseTuple(args, "s", &re)) return Py_None;
+    tre_pattern* ret = tre_compile(re);
+    return PyCapsule_New(ret,"tre_pattern",py_tre_freepattern);
+}
+
+inline PyObject* tre_Match_c2py(tre_Match* m)
+{
+    PyObject* t = PyTuple_New(m->groupnum + 1);
+
+    for (int i=0;i<m->groupnum + 1;i++) {
+        PyObject* t2 = PyTuple_New(2);
+        if (m->groups[i].name)
+            PyTuple_SetItem(t2,0,PyString_FromString(m->groups[i].name));
+        else 
+            PyTuple_SetItem(t2,0,Py_None);
+        PyTuple_SetItem(t2,1,PyString_FromString(m->groups[i].text));
+        PyTuple_SetItem(t, i, t2);
+    }
+    tre_freematch(m);
+    return t;
+}
+
+static PyObject* py_tre_match(PyObject *self,PyObject* args)
+{
+    tre_pattern* re;
+
+    PyObject* obj;
+    char * text;
+    if(!PyArg_ParseTuple(args, "Os", &obj,&text)) return NULL;
+    re = PyCapsule_GetPointer(obj,"tre_pattern");
+
+    tre_Match* m = tre_match(re,text);
+    if (!m) return Py_None;
+
+    return tre_Match_c2py(m);
+}
+
+static PyObject* py_tre_match2(PyObject *self,PyObject* args)
+{    
+    char *re,*text;
+    if(!PyArg_ParseTuple(args, "ss", &re, &text)) return NULL;
+
+    tre_pattern* p = tre_compile(re);
+    if (!p) return Py_None;
+    tre_Match* m = tre_match(p,text);
+    if (!m) return Py_None;
+
+    return tre_Match_c2py(m);
+}
+
+static PyMethodDef tre_methods[] ={
+    {"_compile", py_tre_compile, METH_VARARGS},
+    {"_match",py_tre_match, METH_VARARGS},
+    {"_match2",py_tre_match2, METH_VARARGS},
+    {NULL, NULL,0,NULL}
+};
+
+PyMODINIT_FUNC init_tre (void)
+{
+    Py_InitModule("_tre", tre_methods);
+}
+#endif
 
 /* tinyre
  * 这是一个从头设计的正则引擎。
