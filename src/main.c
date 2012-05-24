@@ -820,7 +820,7 @@ match(char re[2],char c)
     return false;
 }
 
-#define _exitmatch() {free(g_start);free(g_text);free(g_len);free(ret->groups);free(ret);free(sec_stack);return NULL;}
+#define _exitmatch() {free(g_start);free(g_text);free(ret->groups);free(ret);free(sec_stack);return NULL;}
 tre_Match* tre_match(tre_pattern*re,char*s)
 {
     int len = strlen(s);
@@ -853,14 +853,20 @@ tre_Match* tre_match(tre_pattern*re,char*s)
     char c[2];
 
     /* 提供对组机制的支持 */
+    struct _g {
+        const char* s;
+        int len;
+        struct _g *prev;
+    };
+
+    #define _g_new() (struct _g*)calloc(1,sizeof(struct _g))
+
     const char** g_start = NULL;
-    const char** g_text = NULL;
-    int *g_len = NULL;
+    struct _g** g_text = NULL;
 
     if (re->groupnum) {
         g_start = (const char**)calloc(re->groupnum,sizeof(char*));
-        g_text  = (const char**)calloc(re->groupnum,sizeof(char*));
-        g_len   = (int*)calloc(re->groupnum,sizeof(int));
+        g_text  = (struct _g**)calloc(re->groupnum,sizeof(struct _g**));
         ret->groupnum = re->groupnum;
     }
 
@@ -886,8 +892,15 @@ tre_Match* tre_match(tre_pattern*re,char*s)
                 /* 组的末尾 */
                 for (int i=0;i<re->groupnum;i++) {
                     if (re->groups[i].end==p) {
-                        g_text[i] = g_start[i];
-                        g_len[i] = s - g_text[i];
+                        if (!g_text[i]) {
+                            g_text[i] = _g_new();
+                        } else {
+                            struct _g* gtail = _g_new();
+                            gtail->prev = g_text[i];
+                            g_text[i] = gtail;
+                        }
+                        g_text[i]->s   = g_start[i];
+                        g_text[i]->len = s - g_start[i];
                         break;
                     }
                 }
@@ -1126,6 +1139,20 @@ _failed:            if (top<0) _exitmatch();
                     p = stack[top].re+1;
                     s = stack[top--].s;
 
+                    /* 回溯匹配的组 */
+                    if (re->groupnum) {
+                        for (int i=0;i<re->groupnum;i++) {
+                            struct _g* tmp;
+                            for (;g_text[i];) {
+                                if (g_text[i]->s >= s) {
+                                    tmp = g_text[i];
+                                    g_text[i] = g_text[i]->prev;
+                                    free(tmp);
+                                } else break;
+                            }
+                        }
+                    }
+
                     int _cout = 1;
                     /* 跳过回溯后遭遇的组 */
                     if (*p=='('||*p=='[') {
@@ -1163,15 +1190,20 @@ _failed:            if (top<0) _exitmatch();
     if (re->groupnum) {
         for (int i=0;i<re->groupnum;i++) {
             if (g_text[i]) {
-                ret->groups[i+1].text = strndup(g_text[i],g_len[i]);
+                ret->groups[i+1].text = strndup(g_text[i]->s,g_text[i]->len);
                 if (re->groups[i].name)
                     ret->groups[i+1].name = strndup(re->groups[i].name,strlen(re->groups[i].name));
+            }
+            for (struct _g* gtail = g_text[i];gtail;) {
+                struct _g* tmp = gtail;
+                gtail = gtail->prev;
+                free(tmp);
             }
         }
     }
 
+    free(g_start);
     free(g_text);
-    free(g_len);
     free(sec_stack);
     ret->groups[0].text = strndup(start,s-start);
     return ret;
@@ -1289,7 +1321,7 @@ PyMODINIT_FUNC init_tre (void)
  */
 int main(int argc,char* argv[])
 {
-    char regex[] = ".?^d+?(?#asdasd)a?(?!ad)([^1-9][^ac])(?:a{2,4})[a-z0-9]((aa)|b(b)b|d)[ab.c](((?P<aa>.*)3)?3)a-bce*?";
+    char regex[] = ".?^d+?(?#asdasd)a?(?!ad)([^1-9][^ac])(?:a{2,4})[a-z0-9]((aa)|b(b)b|d)[ab.c](((?P<aa>.)*3)?3)a-bce*?";
     char text[]  = "dacbaaafbbb.11333a-bceee";
 
    /* 用法：

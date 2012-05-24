@@ -10,9 +10,9 @@ A tiny regex engine.
 
 现在你可以将这个库用在python2.7中了。  
 
-执行:
-`cd src  
-make -f Makefile.pymod  `
+执行:  
+`cd src`  
+`make -f Makefile.pymod`  
 
 随后把tre.py和编译出来的_tre.so放在一起就能用了。  
 
