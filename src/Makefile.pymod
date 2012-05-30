@@ -10,8 +10,8 @@ obj = ../obj
 VPATH+=$(bin)
 VPATH+=$(obj)
 
-CFLAGS    = -lm -std=c99 -Wall -Wno-format -O3
-CFLAGS_PY = -I/usr/include/python2.7 -shared -L/usr/bin -fpic -lpython2.7 -Dpylib_27
+CFLAGS    = -std=c99 -Wall -Wno-format -O3
+CFLAGS_PY = -I/usr/include/python2.7 -shared -L/usr/bin -fpic -lpython2.7 -Dpy_lib_27
 # LDFLAGS = 
 
 src     = $(wildcard *.c)

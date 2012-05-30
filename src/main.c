@@ -1,6 +1,6 @@
 /*
  * start : 2012-4-8 09:57
- * update: 2012-5-8
+ * update: 2012-5-30
  *
  * tinyre
  * 微型python风格正则表达式库
@@ -28,11 +28,12 @@
 #include <assert.h>
 #include <ctype.h>
 
-#ifdef pylib_27
+#ifdef py_lib_27
 #include <python2.7/Python.h>
 #endif
 
 #define s_foreach(__s,__p) for (__p = __s;*__p;__p++)
+#define _s_foreach(__s,__p) for (;*__p;__p++)
 
 #define pc(c) printf("_%c",c)
 #define _p(x) printf("%s\n",x)
@@ -763,8 +764,8 @@ tre_pattern* tre_compile(char*re)
                     memcpy(pr,&buf,len);
                     pr += len;
                     // 跳转指令
-                    memcpy(pr,"):jr:|",6);
-                    pr+=6;
+                    memcpy(pr,"):jr:",5);
+                    pr+=5;
                     // 对前面的分组进行修正处理
                     if (gtop>=0) {
                         int _offset = 3;
@@ -790,30 +791,28 @@ tre_pattern* tre_compile(char*re)
     return ptn;
 }
 
-static bool
-match(char re[2],char c)
+inline static bool
+match(char *c,char *re)
 {
-    if (c=='\0') return false;
+    if (*c=='\0') return false;
 
-    char c1 = re[0];
-    char c2 = re[1];
-    switch (c1) {
+    switch (re[0]) {
         case '.' :
-            if (dotall || c!='\n') return true;
+            if (dotall || *c!='\n') return true;
             break;
         case '\\' :
-            switch (c2) {
-                case 'd' : if (isdigit(c)) return true;break;
-                case 'D' : if (!isdigit(c)) return true;break;
-                case 'w' : if (isalnum(c) || c == '_') return true;break;
-                case 'W' : if (!isalnum(c) || c != '_') return true;break;
-                case 's' : if (isspace(c)) return true;break;
-                case 'S' : if (!(isspace(c))) return true;break;
-                default  : if (c2==c) return true;
+            switch (re[1]) {
+                case 'd' : if (isdigit(*c)) return true;break;
+                case 'D' : if (!isdigit(*c)) return true;break;
+                case 'w' : if (isalnum(*c) || *c == '_') return true;break;
+                case 'W' : if (!isalnum(*c) || *c != '_') return true;break;
+                case 's' : if (isspace(*c)) return true;break;
+                case 'S' : if (!(isspace(*c))) return true;break;
+                default  : if (re[1]==*c) return true;
             }
             break;
         default   :
-            if (c1==c) {
+            if (re[0]==*c) {
                 return true;
             }
     }
@@ -850,7 +849,6 @@ tre_Match* tre_match(tre_pattern*re,char*s)
     char* slot=NULL;
 
     char *p,*start=s;
-    char c[2];
 
     /* 提供对组机制的支持 */
     struct _g {
@@ -875,36 +873,16 @@ tre_Match* tre_match(tre_pattern*re,char*s)
 
     ret->groups = (tre_group*)calloc(re->groupnum+1,sizeof(tre_group));
 
-    s_foreach(re->re,p) {
+    p = re->re;
+    if (*p=='{') {
+        /* 开启次等回溯栈 */
+        if (!sec_stack)
+            sec_stack = (sec_btstack_node*)malloc(len*sizeof(sec_btstack_node));
+        p++;
+    }
+
+    _s_foreach(re->re,p) {
         switch (*p) {
-            case '('  :
-                /* 接下来的东西在组内 */
-                for (int i=0;i<re->groupnum;i++) {
-                    if (re->groups[i].start==p) {
-                        if (*s) g_start[i] = s;
-                        break;
-                    }
-                }
-                break;
-            case ')'  :
-                /* 复位否定匹配 */
-                if (nm) nm = false;
-                /* 组的末尾 */
-                for (int i=0;i<re->groupnum;i++) {
-                    if (re->groups[i].end==p) {
-                        if (!g_text[i]) {
-                            g_text[i] = _g_new();
-                        } else {
-                            struct _g* gtail = _g_new();
-                            gtail->prev = g_text[i];
-                            g_text[i] = gtail;
-                        }
-                        g_text[i]->s   = g_start[i];
-                        g_text[i]->len = s - g_start[i];
-                        break;
-                    }
-                }
-                break;
             case '['  :
                 break;
             case ']'  :
@@ -918,35 +896,6 @@ tre_Match* tre_match(tre_pattern*re,char*s)
                     case 'p' :
                         if (!_dumpstack) {
                             stack[++top].re = p;
-                            stack[top].s = s;
-                            if (sec_stack) {
-                                sec_stack[top].nm = nm;
-                                sec_stack[top].ecx = ecx;
-                            }
-                        } else _dumpstack = false;
-                        break;
-                    case '<' :
-                        if (!_dumpstack) {
-                            char* start = NULL;
-                            char* p1 = p - 1;
-                            if ((*(p1-1)!=')'&&*(p1-1)!=']')||*(p1-2)=='\\') {
-                                if (*(p1-2)=='\\') start = p1 - 2;
-                                else start = p1 - 1;
-                            } else {
-                                char _signl,_signr = *(p1-1);
-                                if (_signr==')') _signl = '(';
-                                else _signl = '[';
-
-                                p1--;
-                                int _cout = 1;
-                                while (*p1!=_signl||_cout!=0) {
-                                    p1--;
-                                    if (*p1==_signr) _cout++;
-                                    else if (*p1==_signl) _cout--;
-                                }
-                                start = p1;
-                            }
-                            stack[++top].re = start - 2;
                             stack[top].s = s;
                             if (sec_stack) {
                                 sec_stack[top].nm = nm;
@@ -1099,12 +1048,37 @@ tre_Match* tre_match(tre_pattern*re,char*s)
                         break;
                     case 'o'  :
                         break;
+                    case '<' :
+                        if (!_dumpstack) {
+                            char* start = NULL;
+                            char* p1 = p - 1;
+                            if ((*(p1-1)!=')'&&*(p1-1)!=']')||*(p1-2)=='\\') {
+                                if (*(p1-2)=='\\') start = p1 - 2;
+                                else start = p1 - 1;
+                            } else {
+                                char _signl,_signr = *(p1-1);
+                                if (_signr==')') _signl = '(';
+                                else _signl = '[';
+
+                                p1--;
+                                int _cout = 1;
+                                while (*p1!=_signl||_cout!=0) {
+                                    p1--;
+                                    if (*p1==_signr) _cout++;
+                                    else if (*p1==_signl) _cout--;
+                                }
+                                start = p1;
+                            }
+                            stack[++top].re = start - 2;
+                            stack[top].s = s;
+                            if (sec_stack) {
+                                sec_stack[top].nm = nm;
+                                sec_stack[top].ecx = ecx;
+                            }
+                        } else _dumpstack = false;
+                        break;
                 }
                 break;
-            case '\\' :
-                c[0] = '\\';
-                c[1] = *++p;
-                goto _def;
             case '-'  :
                 /* 匹配 [a-z] */
                 if (nm==(*s>=*(p+1)&&*s<=*(p+2))) {
@@ -1116,20 +1090,40 @@ tre_Match* tre_match(tre_pattern*re,char*s)
             case '$'  :
                 if (*s) _exitmatch();
                 break;
-            case '|'  :
-                break;
             case '^'  :
                 /* 匹配文本开头 */
                 if (s!=start) goto _failed;
                 break;
-            case '{'  :
-                /* 开启次等回溯栈 */
-                if (!sec_stack) 
-                    sec_stack = (sec_btstack_node*)malloc(len*sizeof(sec_btstack_node));
+            case '('  :
+                /* 接下来的东西在组内 */
+                for (int i=0;i<re->groupnum;i++) {
+                    if (re->groups[i].start==p) {
+                        if (*s) g_start[i] = s;
+                        break;
+                    }
+                }
+                break;
+            case ')'  :
+                /* 复位否定匹配 */
+                if (nm) nm = false;
+                /* 组的末尾 */
+                for (int i=0;i<re->groupnum;i++) {
+                    if (re->groups[i].end==p) {
+                        if (!g_text[i]) {
+                            g_text[i] = _g_new();
+                        } else {
+                            struct _g* gtail = _g_new();
+                            gtail->prev = g_text[i];
+                            g_text[i] = gtail;
+                        }
+                        g_text[i]->s   = g_start[i];
+                        g_text[i]->len = s - g_start[i];
+                        break;
+                    }
+                }
                 break;
             default:
-                c[0] = *p;
-_def:           if (nm==match(c,*s)) {
+                if (nm==match(s,p)) {
 _failed:            if (top<0) _exitmatch();
                     if (lockpos) lockpos = false;
                     if (sec_stack) {
@@ -1182,7 +1176,10 @@ _failed:            if (top<0) _exitmatch();
                             while (*p!=':') p++;
                         }
                     }
-                } else if (!lockpos) s++;
+                } else {
+                    if (*p=='\\') p++;
+                    if (!lockpos) s++;
+                }
                 break;
         }
     }
@@ -1241,16 +1238,19 @@ void tre_freematch(tre_Match*m)
     free(m);
 }
 
-#ifdef pylib_27
+#ifdef py_lib_27
 void py_tre_freepattern(PyObject* obj)
 {
-    tre_freepattern(PyCapsule_GetPointer(obj,"tre_pattern"));
+    tre_freepattern((tre_pattern*)PyCapsule_GetPointer(obj,"tre_pattern"));
 }
 
 static PyObject* py_tre_compile(PyObject *self,PyObject* args)
 {
     char* re;
-    if(!PyArg_ParseTuple(args, "s", &re)) return Py_None;
+    if(!PyArg_ParseTuple(args, "s", &re)) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
     tre_pattern* ret = tre_compile(re);
     return PyCapsule_New(ret,"tre_pattern",py_tre_freepattern);
 }
@@ -1263,8 +1263,10 @@ inline PyObject* tre_Match_c2py(tre_Match* m)
         PyObject* t2 = PyTuple_New(2);
         if (m->groups[i].name)
             PyTuple_SetItem(t2,0,PyString_FromString(m->groups[i].name));
-        else 
+        else {
+            Py_INCREF(Py_None);
             PyTuple_SetItem(t2,0,Py_None);
+        }
         PyTuple_SetItem(t2,1,PyString_FromString(m->groups[i].text));
         PyTuple_SetItem(t, i, t2);
     }
@@ -1279,10 +1281,13 @@ static PyObject* py_tre_match(PyObject *self,PyObject* args)
     PyObject* obj;
     char * text;
     if(!PyArg_ParseTuple(args, "Os", &obj,&text)) return NULL;
-    re = PyCapsule_GetPointer(obj,"tre_pattern");
+    re = (tre_pattern*)PyCapsule_GetPointer(obj,"tre_pattern");
 
     tre_Match* m = tre_match(re,text);
-    if (!m) return Py_None;
+    if (!m) {
+         Py_INCREF(Py_None);
+         return Py_None;
+    }
 
     return tre_Match_c2py(m);
 }
@@ -1293,9 +1298,15 @@ static PyObject* py_tre_match2(PyObject *self,PyObject* args)
     if(!PyArg_ParseTuple(args, "ss", &re, &text)) return NULL;
 
     tre_pattern* p = tre_compile(re);
-    if (!p) return Py_None;
+    if (!p) {
+         Py_INCREF(Py_None);
+         return Py_None;
+    }
     tre_Match* m = tre_match(p,text);
-    if (!m) return Py_None;
+    if (!m) {
+         Py_INCREF(Py_None);
+         return Py_None;
+    }
 
     return tre_Match_c2py(m);
 }
@@ -1313,6 +1324,7 @@ PyMODINIT_FUNC init_tre (void)
 }
 #endif
 
+#ifndef py_lib_27
 /* tinyre
  * 这是一个从头设计的正则引擎。
  *
@@ -1374,4 +1386,6 @@ int main(int argc,char* argv[])
     }
     return 0;
 }
+
+#endif
 
