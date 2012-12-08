@@ -1,35 +1,39 @@
 
-# tinyre  
+# tinyre ver 0.8.0
 
 A tiny regex engine.  
-一个小型的有点特别的 python 风格正则引擎。  
+小型正则引擎，语法与python的sre近似，当前仅支持匹配。  
 
-效率不高，有待优化。  
-暂时仅供围观，不建议实际使用。  
+支持   : . ? * + | ^ $ () [] 分组  
+不支持 : {} 非贪婪匹配  
 
-当前能够支持 . ? * + | ^ $ () (?!) (?#) (?:) [] {} \D \d \S \s \W \w  及 分组
+## 作为源码使用
 
-## 用于 Python
+直接复制 tinyre.h 和 tinyre.c 到源码目录，  
 
-现在你可以将这个库用在python2.7中了。  
+并在程序中引用 tinyre.h  
+
+## 作为链接库使用
+
+执行:
+`cd src`  
+`make lib`  
+
+引用头文件并配合 tinyre.so 使用。  
+
+## 用于 Python 2.7
 
 执行:  
 `cd src`  
-`make -f Makefile.pymod`  
+`make pylib27`  
 
-随后把tre.py和编译出来的_tre.so放在一起就能用了。  
-
-用法参考原版re模块。
+将tre.py与_tre.so加入工程，就像使用re一样使用它。  
 
 ## 文档
 
-### 面向开发者
 [基础设计](https://github.com/fy0/TinyRe/wiki/%E5%9F%BA%E7%A1%80%E8%AE%BE%E8%AE%A1)  
 [TODO列表](https://github.com/fy0/TinyRe/wiki/todo-%E5%88%97%E8%A1%A8)  
-[程序设计变更记录](https://github.com/fy0/TinyRe/wiki/%E7%A8%8B%E5%BA%8F%E8%AE%BE%E8%AE%A1%E5%8F%98%E6%9B%B4%E8%AE%B0%E5%BD%95)  
-
-### 面向使用者
 [更新记录](https://github.com/fy0/TinyRe/wiki/%E6%9B%B4%E6%96%B0%E8%AE%B0%E5%BD%95)  
 
-许可协议：**zlib license**
+许可协议：zlib license
 
