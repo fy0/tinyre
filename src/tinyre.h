@@ -1,3 +1,8 @@
+/**
+ * tinyre v0.8.1
+ * fy, 2012-2013
+ *
+ */
 
 #ifndef _TINYRE_H_
 #define _TINYRE_H_

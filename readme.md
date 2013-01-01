@@ -1,11 +1,11 @@
 
-# tinyre ver 0.8.0
+# tinyre ver 0.8.1
 
 A tiny regex engine.  
-小型正则引擎，语法与python的sre近似，当前仅支持匹配。  
+小型正则引擎，语法与python的sre近似，当前仅支持匹配(match)和替换(sub)。  
 
-支持   : . ? * + | ^ $ () [] 分组  
-不支持 : {} 非贪婪匹配  
+支持   : . ? * + | ^ $ () [] 分组 非贪婪匹配  
+不支持 : {}  
 
 ## 作为源码使用
 
@@ -31,9 +31,9 @@ A tiny regex engine.
 
 ## 文档
 
-[基础设计](https://github.com/fy0/TinyRe/wiki/%E5%9F%BA%E7%A1%80%E8%AE%BE%E8%AE%A1)  
-[TODO列表](https://github.com/fy0/TinyRe/wiki/todo-%E5%88%97%E8%A1%A8)  
-[更新记录](https://github.com/fy0/TinyRe/wiki/%E6%9B%B4%E6%96%B0%E8%AE%B0%E5%BD%95)  
+[基础设计](https://github.com/fy0/tinyre/wiki/%E5%9F%BA%E7%A1%80%E8%AE%BE%E8%AE%A1)  
+[TODO列表](https://github.com/fy0/tinyre/wiki/todo-%E5%88%97%E8%A1%A8)  
+[更新记录](https://github.com/fy0/tinyre/wiki/%E6%9B%B4%E6%96%B0%E8%AE%B0%E5%BD%95)  
 
 许可协议：zlib license
 

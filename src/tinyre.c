@@ -1,10 +1,11 @@
 /*
  * start : 2012-4-8 09:57
- * update: 2012-12-08
+ * update: 2013-01-01 v0.8.1
  *
  * tinyre
  * 正则表达式引擎
  * 第八原型 - 12.10.9
+ * fy, 2012-2013
  *
  */
 
@@ -44,11 +45,19 @@
 #define ins_jmp      9
 #define ins_jmpl     10
 #define ins_jmp_gt   11
+#define ins_jmp_next 12
 #define ins_grp_head 20
 #define ins_grp_tail 21
 #define ins_begin    30
 #define ins_end      31
 #define ins_eof      40
+
+#define tre_btnode_none      0
+#define tre_btnode_star      1
+#define tre_btnode_plus      2
+#define tre_btnode_qm        4
+#define tre_btnode_part      8
+#define tre_btnode_nogreed  16
 
 typedef struct _tre_node tre_node;
 
@@ -184,7 +193,7 @@ void tre_err(const char* s) {
 char* getlastpos(char* p, char* start) {
     if (p-- == start) {
         //ERR 词法错误: 无法匹配至开头
-        tre_err("ERR 无法匹配至开头");
+        tre_err("ERR 201:无法匹配至开头");
         return NULL;
     }
     switch (*p) {
@@ -197,7 +206,7 @@ char* getlastpos(char* p, char* start) {
                         if (--count == 0) return p;
                     } else if (*p == r) count++;
                 }
-                tre_err("ERR 括号不能正确匹配");
+                tre_err("ERR 202:括号不能正确匹配");
                 return NULL;
             }
         case ']':
@@ -205,7 +214,7 @@ char* getlastpos(char* p, char* start) {
                 for (p--; p >=  start; p--) {
                     if (*p == '[' && *(p-1) != '\\') return p;
                 }
-                tre_err("ERR 括号不能正确匹配");
+                tre_err("ERR 202:括号不能正确匹配");
                 return NULL;
             }
         default:
@@ -273,12 +282,25 @@ tre_precheck_info* tre_precheck(char* s)
             case '+':
             case '?':
                 {
-                    if (*(p-1)=='\\') break;
+                    char _c = *(p-1);
+                    if (_c == '\\') break;
+                    btnode->flag = tre_btnode_none;
+
+                    if (_c=='?'|| _c=='*'|| _c=='+') {
+                        /* 非贪婪模式*/;
+                        p--;
+                        btnode->flag |= tre_btnode_nogreed;
+                    }
+
                     btcount++;
                     lastpos = getlastpos(p, s);
                     btnode->head = lastpos;
                     btnode->tail = p-1;
-                    btnode->flag = *p;
+                    switch (*p) {
+                        case '*':btnode->flag|=tre_btnode_star;break;
+                        case '+':btnode->flag|=tre_btnode_plus;break;
+                        case '?':btnode->flag|=tre_btnode_qm;break;
+                    }
                     if (lastpos!=p-1) {
                         grpcount++;
                         init_grp();
@@ -287,10 +309,11 @@ tre_precheck_info* tre_precheck(char* s)
                         work_grp();
                         next_grp();
                         p--;
+                    } else {
+                        if (*(p-1) == ']') p = lastpos;
                     }
                     btnode = btnode->_next = _new(tre_linknode,1);
                     btnode->_next = NULL;
-                    if (*(p-1) == ']') p = lastpos;
                     break;
                 }
             case '}':
@@ -304,17 +327,18 @@ tre_precheck_info* tre_precheck(char* s)
                     }
                     p--;
                 }
+                break;
             case '|':
                 if (*(p-1)=='\\') break;
                 btcount++;
                 if (*partlast) {
                     /* flag 有值表示这是一个正常回溯组 */
                     (*partlast)->head = p;
-                    (*partlast)->flag = '|';
+                    (*partlast)->flag = tre_btnode_part;
                 }
                 *partlast = btnode;
                 btnode->tail = p;
-                btnode->flag = 0;
+                btnode->flag = tre_btnode_none;
                 if (*grplast) {
                     btnode->head = (*grplast)->head;
                     /* 这表示当前组中存在 | 因此要在组开始后写入一个 push */
@@ -385,15 +409,6 @@ tre_precheck_info* tre_precheck(char* s)
         free(*(grps + grpcount - 1));
         free(grps);
         free(grp_heads);
-/*      旧的复制代码
-        grplist = tmp;
-
-        while (grplist->_next) {
-            tmp = grplist->_next;
-            memcpy(pinfo--, grplist, sizeof(tre_group));
-            free(grplist);
-            grplist = tmp;
-        }*/
         ret->groups = grpinfo;
     }
 
@@ -479,15 +494,23 @@ tre_Pattern* tre_compile(char* s, char flag)
         switch (*pc) {
             /* 回溯组后缀 */
             case '?':
-                write_ins(&p, ins_nop);
-                break;
+                {
+                    char _c = *(pc-1);
+                    if (_c=='*' || _c=='+' || _c=='?') break;
+                    write_ins(&p, ins_nop);
+                    break;
+                }
             case '+':
             case '*':
-                write_ins(&p, ins_jmpl);
-                break;
-            case '\\':
-                write_ins(&p, ins_cmp_spe, *++pc);
-                break;
+                {
+                    // <-- 非贪婪匹配
+                    if (*(pc+1)=='?') {
+                        write_ins(&p, ins_push);
+                    } else { // -->
+                        write_ins(&p, ins_jmpl);
+                    }
+                    break;
+                }
             case '^':
                 write_ins(&p, ins_begin);
                 break;
@@ -498,10 +521,16 @@ tre_Pattern* tre_compile(char* s, char flag)
                 if (*(byte*)(pc+1)=='^') pc = write_ins(&p, ins_mncmp, pc+1);
                 else pc = write_ins(&p, ins_mcmp, pc);
                 break;
+            //case '\\':
+            //    write_ins(&p, ins_cmp_spe, *++pc);
+            //    break;
             default:
                 {
                     tre_group *_g;
                     tre_node *_node;
+                    bool _is_escape_char = (*pc == '\\' ? true : false);
+
+                    if (_is_escape_char) pc++;
 
                     if (info->btcount) {
                         /* 回溯组前缀 */
@@ -510,12 +539,15 @@ tre_Pattern* tre_compile(char* s, char flag)
                             /* 存在 flag 表示这是一个正常回溯组，不存在flag表示这是一个用于 | 的卖萌回溯组，
                              * 卖萌回溯组将由下面 *pc == '(' 的卖萌回馈单元进行处理 */
                             if (_node->head == pc && _node->flag) {
-                                if (_node->flag == '+')
+                                if (_node->flag & tre_btnode_plus)
                                     write_ins(&p, ins_escape);
-                                write_ins(&p, ins_push);
+                                // <-- 非贪婪匹配
+                                if (_node->flag & tre_btnode_nogreed)
+                                    write_ins(&p, ins_jmp_next);
+                                else // -->
+                                    write_ins(&p, ins_push);
                                 _node->head = p;
-
-
+        
                                 if (_node->tail == pc)
                                     _node->tail = p;
                                 break;
@@ -575,6 +607,8 @@ tre_Pattern* tre_compile(char* s, char flag)
                         }
                     } else if (*pc == '.')
                         write_ins(&p, ins_cmp_spe, *pc);
+                    else if (_is_escape_char)
+                        write_ins(&p, ins_cmp_spe, *pc);
                     else if (*pc == '|')
                         ;
                     else
@@ -624,6 +658,9 @@ void debug_printcode(void* code)
                 break;
             case ins_push:
                 printf("%x push      ; 压栈指令\n", p);
+                break;
+            case ins_jmp_next:
+                printf("%x jmp_next ; 右向跳转指令\n", p);
                 break;
             case ins_nop:
                 printf("%x nop       ; 空指令\n", p);
@@ -699,12 +736,13 @@ tre_Match* tre_match(tre_Pattern* tp, char* str)
     tre_btstack* bts = _new(tre_btstack, tp->btcount * 5 + 5);
     tre_btstack* bts_end = bts + tp->btcount * 5 - 1;
     tre_btstack* pb = bts - 1;
-    int pbcount = 0;
     tre_node* pn = tp->btinfo;
     tre_group* groups = _new(tre_group, tp->groupnum + 1);
     tre_group* groups_head = groups + 1;
     bool bEscape = false;
-    memcpy(groups_head, tp->groups, sizeof(tre_group) * tp->groupnum);
+    memset(groups_head, 0, sizeof(tre_group) * tp->groupnum);
+    //memcpy(groups_head, tp->groups, sizeof(tre_group) * tp->groupnum);
+
 #ifdef DEBUG
     debug_checknode2(tp);
     debug_checkgroup(tp);
@@ -735,8 +773,18 @@ tre_Match* tre_match(tre_Pattern* tp, char* str)
 #ifdef DEBUG
                     printf("%x jmpl        ; 前向跳转指令\n", p);
 #endif
+                    bool b = false;
+                    tre_node* _p;
+                    for (_p = pn; _p < pn + tp->btcount; _p++) {
+                        if (_p->tail == p-1) {
+                            b = true;
+                            p = _p->head - 2;
+                            break;
+                        }
+                    }
                     /* -1 是与下面的 p++ 抵消*/
-                    p = pb->head - 1;
+                    /* 这句话是为了解决 BUG 5 */
+                    if (!b) p = pb->head - 1;
                     break;
                 }
             case ins_push:
@@ -744,8 +792,8 @@ tre_Match* tre_match(tre_Pattern* tp, char* str)
                 printf("%x push        ; 压栈指令\n", p);
 #endif
                 {
-                    tre_node* _p;
 
+                    /* 检查回溯栈容量是否足够 */
                     if (pb >= bts_end) {
                         int offset = (int)(pb - bts);
                         int _size = ((int)(bts_end - bts) + 1) * 2;
@@ -758,28 +806,76 @@ tre_Match* tre_match(tre_Pattern* tp, char* str)
                             }
                         }
                     }
+                    /* 写入回溯信息 */
+                    tre_node* _p;
+
                     (++pb)->s = pc;
                     pb->head = p;
                     for (_p = pn; _p < pn + tp->btcount; _p++) {
-                        if (_p->head == p+1) {
-                            if (*(byte*)(_p->tail) == 0)
-                                pb->re = _p->tail+3;
-                            else pb->re = _p->tail + 2;
-                        break;
-                    }
-                    }
+                        if (_p->flag & tre_btnode_nogreed) {
+                            byte b = *(byte*)(_p->tail);
+                            if (b==0||b==1) {
+                                if (_p->tail == p-2) {
+                                    pb->re = _p->head;
+                                    break;
+                                }
+                            } else {
+                                if (_p->tail == p-1) {
+                                    pb->re = _p->head;
+                                    break;
+                                }
+                            }
+                        } else {
+                            if (_p->head == p+1) {
+                                /* TODO:这里可能还有问题 */
+                                byte b = *(byte*)(_p->tail);
+                                if (b == 0 || b == 1)
+                                    pb->re = _p->tail+3;
+                                else pb->re = _p->tail + 2;
+                                break;
+                            }
+                        }
+                    } 
+                    /* 处理弃栈 */
                     if (bEscape) {
                         bEscape = false;
                         pb->flag = 0;
                     } else {
                         pb->flag = 1;
-                        pbcount ++;
                     }
 #ifdef DEBUG
                     //printf("; 栈顶  : %x\n", pb);
                     //printf("; s     : %x\n", pb->s);
                     //printf("; re    : %x\n", pb->re);
 #endif
+                    break;
+                }
+            case ins_jmp_next:
+                {
+#ifdef DEBUG
+                    printf("%x ins_jmpn    ; 右向跳转指令\n", p);
+#endif
+
+                    /* 处理弃栈 */
+                    if (bEscape) {
+                        bEscape = false;
+                    } else {
+                        bool _b = false;
+                        tre_node* _p;
+                        for (_p = pn; _p < pn + tp->btcount; _p++) {
+                            if (_p->head == p+1) {
+                                /* TODO:这里可能还有问题 */
+                                byte b = *(byte*)(_p->tail);
+                                if (b == 0 || b == 1)
+                                    p = _p->tail+2;
+                                else p = _p->tail + 1;
+                                _b = true;
+                                break;
+                            }
+                        }
+                        if (_b) continue;
+                        //else  TODO:报错
+                    }
                     break;
                 }
             case ins_escape:
@@ -791,9 +887,10 @@ tre_Match* tre_match(tre_Pattern* tp, char* str)
 #endif
                 {
                     tre_group *_g;
-                    for (_g = groups_head ; _g <= groups_head + tp->groupnum - 1; _g++) {
+                    for (_g = tp->groups; _g < tp->groups + tp->groupnum; _g++) {
                         if ((byte*)_g->head == p) {
-                            _g->tmp = pc;
+                            tre_group *curg = groups_head + (_g - tp->groups);
+                            curg->tmp = pc;
                             break;
                         }
                     }
@@ -805,14 +902,18 @@ tre_Match* tre_match(tre_Pattern* tp, char* str)
 #endif
                 {
                     tre_group *_g;
-                    for (_g = groups_head ; _g <= groups_head + tp->groupnum - 1; _g++) {
+                    for (_g = tp->groups ; _g < tp->groups + tp->groupnum; _g++) {
                         if ((byte*)_g->tail == p) {
-                            _g->head = _g->tmp;
-                            _g->tail = pc-1;
-                            _g->tmp = NULL;
+                            tre_group *curg = groups_head + (_g - tp->groups);
+                            /* 这个检查是为了修复 BUG 7 */
+                            if (curg->tmp)
+                                curg->head = curg->tmp;
+                            curg->tail = (pc-1 < curg->head) ? NULL : pc-1;
+                            curg->tmp = NULL;
                             break;
                         }
                     }
+
                     break;
                 }
             case ins_mcmp:
@@ -856,26 +957,16 @@ tre_Match* tre_match(tre_Pattern* tp, char* str)
                 printf("%x jmp_gt      ; 跳至分组尾\n", p);
 #endif
                 {
-                    /* 若无 group_now 那么明显是在最外层，这时直接执行 eof */
-                    /* TODO:找出当前所在分组，这里先使用一个无脑的算法，以后再优化 */
-                    tre_group *curg;
-                    if (tp->groupnum == 1) {
-                        curg = groups_head;
-                    } else {
-                        tre_group *_g;
-                        curg = NULL;
-                        void* offset, *offset_min = (void*)(p - (byte*)groups_head->head);
+                    tre_group *_g, *curg = NULL;
 
-                        for (_g = groups_head + 1; _g <= groups_head + tp->groupnum - 1; _g++) {
-                            offset = (void*)(p - (byte*)_g->head);
-                            if ((offset < offset_min) && (p <= (byte*)_g->tail)) {
-                                offset_min = offset;
-                                curg = _g;
-                            }
-                        }
+                    for (_g = tp->groups; _g < tp->groups + tp->groupnum; _g++) {
+                        if ((byte*)_g->head > p) break;
+                        if ((byte*)_g->tail < p) continue;
+                        curg = _g;
                     }
+
                     if (curg) p = (byte*)curg->tail;
-                    else goto end;
+                    else tre_err("ERR 101:找不到当前分组");
                     continue;
                 }
             case ins_begin:
@@ -890,14 +981,19 @@ tre_Match* tre_match(tre_Pattern* tp, char* str)
         p++;
         continue;
 failed:
+        while (pb >= bts && !pb->flag) pb--;
 #ifdef DEBUG
         printf("匹配失败 %c\n", *(pc-1));
 #endif
-        if (pbcount--) {
+        if (pb >= bts) {
 #ifdef DEBUG
             printf("返回回溯点\n");
 #endif
-            while (!pb->flag) pb--;
+            tre_group *_g;
+            for (_g = groups_head ; _g < groups_head + tp->groupnum; _g++) {
+                if (_g->tail && _g->tail >= pb->s) _g->tail = NULL;
+            }
+
             p = pb->re;
             pc = (pb--)->s;
         } else {
@@ -907,7 +1003,11 @@ failed:
         }
     }
 
-end:;
+end:
+#ifdef DEBUG
+        printf("遇到结束指令，匹配完成\n");
+#endif
+
     groups[0].name = NULL;
     groups[0].tmp = NULL;
     groups[0].head = str;
@@ -927,7 +1027,6 @@ do_ins_cmp(char *re, char*c, char flag)
 
     switch (*re) {
         case '.' :
-            if (*c=='\0') return false;
             if (flag & tre_pattern_dotall) return true;
             else if (*c!='\n') return true;
             break;
@@ -940,6 +1039,83 @@ do_ins_cmp(char *re, char*c, char flag)
         default  : if (*re==*c) return true;
     }
     return false;
+}
+
+/* char flag */
+char* tre_sub(tre_Pattern* tp, char* repl, char* str, int count)
+{
+    int size = 0;
+    char* s = str;
+    tre_group **ms = _new(tre_group*, 30);
+    tre_group **ms_end = ms + 30;
+    tre_group **mnow = ms + 1;
+    char* str_end = str + strlen(str);
+
+    s = str;
+
+    while (true) {
+        size = mnow - ms - 1;
+        if (count) {
+            if (size>=count) break;
+        }
+
+        //printf("%x %s\n", s, s);
+        tre_Match* m = tre_match(tp, s);
+        if (m) {
+            if (ms >= ms_end) {
+                int offset = (int)(mnow - ms);
+                int _size = ((int)(ms_end - ms) + 1) * 2;
+                while (true) {
+                    ms = realloc(ms, sizeof(tre_btstack)*_size);
+                    if (ms) {
+                        ms_end = ms + _size - 1;
+                        mnow = ms + offset;
+                        break;
+                    }
+                }
+            }
+
+            *mnow = m->groups;
+            //printf("%x %x x \n", (*mnow)->head, (*mnow)->tail);
+            /* 见 FAQ.2 */
+            if ((*mnow)->tail < (*mnow)->head)
+                s++;
+            else
+                s = (*mnow)->tail + 1;
+            mnow++;
+            free(m);
+        } else s++;
+        if (s >= str_end) {
+            break;
+        }
+    }
+    if (!size) return strdup(str);
+
+    int len, _len = strlen(repl);
+    tre_group** p = ms;
+    char* ret = _new(char, strlen(str) + _len * size);
+    char* pret = ret;
+
+    *p = _new(tre_group, 1);
+    (*p++)->tail = str-1;
+
+    for (;p<mnow;p++) {
+        len = (*p)->head - (*(p-1))->tail - 1;
+        memcpy(pret, (*(p-1))->tail + 1, len * sizeof(char));
+        pret += len;
+        memcpy(pret, repl, _len * sizeof(char));
+        pret += _len;
+    }
+    len = str_end  - (*(p-1))->tail;
+    memcpy(pret, (*(p-1))->tail + 1, len);
+    pret += len;
+    *pret = '\0';
+
+    for (p=ms;p<mnow;p++)
+        free(*p);
+    free(ms);
+
+    return ret;
 }
 
 void tre_free_pattern(tre_Pattern *ptn) {
@@ -1007,7 +1183,7 @@ inline PyObject* tre_Match_c2py(tre_Match* m)
             PyTuple_SetItem(t2, 0, Py_None);
         }
 
-        if (!m->groups[i].tmp) {
+        if (m->groups[i].tail) {
             char* text = strndup(m->groups[i].head, m->groups[i].tail - m->groups[i].head + 1);
             PyTuple_SetItem(t2,1,PyString_FromString(text));
             free(text);
@@ -1033,8 +1209,8 @@ static PyObject* trepy_match(PyObject *self, PyObject* args)
 
     tre_Match* m = tre_match(re, text);
     if (!m) {
-         Py_INCREF(Py_None);
-         return Py_None;
+        Py_INCREF(Py_None);
+        return Py_None;
     }
 
     return tre_Match_c2py(m);
@@ -1059,10 +1235,41 @@ static PyObject* trepy_compile_and_match(PyObject *self,PyObject* args)
     return tre_Match_c2py(m);
 }
 
+static PyObject* trepy_sub(PyObject *self, PyObject* args)
+{
+    tre_Pattern* re;
+    PyObject* obj;
+    char *repl, *text;
+    int count;
+
+    if(!PyArg_ParseTuple(args, "Ossi", &obj, &repl, &text, &count)) return NULL;
+    re = (tre_Pattern*)PyCapsule_GetPointer(obj,"_tre_pattern");
+
+    char *ret = tre_sub(re, repl, text, count);
+    return PyString_FromString(ret);
+}
+
+static PyObject* trepy_compile_and_sub(PyObject *self,PyObject* args)
+{    
+    int count;
+    char *re,*repl,*text, flag=0;
+    if(!PyArg_ParseTuple(args, "sssib", &re, &repl, &text, &count, &flag)) return NULL;
+
+    tre_Pattern* p = tre_compile(re, flag);
+    if (!p) {
+         Py_INCREF(Py_None);
+         return Py_None;
+    }
+    char *ret = tre_sub(p, repl, text, count);
+    return PyString_FromString(ret);
+}
+
 static PyMethodDef tre_methods[] ={
     {"_compile", trepy_compile, METH_VARARGS},
     {"_match", trepy_match, METH_VARARGS},
     {"_compile_and_match", trepy_compile_and_match, METH_VARARGS},
+    {"_sub", trepy_sub, METH_VARARGS},
+    {"_compile_and_sub", trepy_compile_and_sub, METH_VARARGS},
     {NULL, NULL,0,NULL}
 };
 
@@ -1076,20 +1283,15 @@ PyMODINIT_FUNC init_tre (void)
 
 int main(int argc,char* argv[])
 {
-    //char regex[] = ".?^d+?(?#asdasd)a?(?!ad)([^1-9][^ac])(?:a{2,4})[a-z0-9]((aa)|b(b)b|d)[ab.c](((?P<aa>.)*3)?3)a-bce*?";
-    //char text[]  = "dacbaaafbbb.11333a-bceee";
-    
-    //tre_Pattern* ptn =  tre_compile("^[^\\s](.c?e*d*(ha)*)d*(?P<asd>ff|e(?P<c>g|s))|cds$", tre_pattern_dotall);
-    //tre_Match *m = tre_match(ptn, "a\ndddddhahahadddes");
-
-    tre_Pattern* ptn =  tre_compile("a*", tre_pattern_dotall);
-    tre_Match *m = tre_match(ptn, "a");
+/*    tre_Pattern* ptn =  tre_compile("x+", tre_pattern_dotall);
+    tre_Match *m = tre_match(ptn, "xd");
 
     if (m) {
         int i;
         for (i = 0;i<m->groupnum+1;i++) {
             printf("分组 %d :", i);
-            if (!m->groups[i].tmp)
+            printf("%x %x %x\n", m->groups[i].head, m->groups[i].tail, m->groups[i].tmp);
+            if (m->groups[i].tail)
                 tre_printstr(m->groups[i].head, m->groups[i].tail);
             if (m->groups[i].name)
                 printf(" 组名:%s", m->groups[i].name);
@@ -1099,17 +1301,18 @@ int main(int argc,char* argv[])
         tre_free_match(m);
     } else 
         printf("匹配失败\n");
+*/
+
+    //tre_Pattern* ptn =  tre_compile("x*", tre_pattern_dotall);
+    //char* ret = tre_sub(ptn, "-", "abxd", 0);
+
+    tre_Pattern* ptn =  tre_compile("(\\S)\\s+(\\S)", tre_pattern_dotall);
+    char* ret = tre_sub(ptn, "\\1 \\2", "hello  there", 0);
+
+    printf("%s \n", ret);
+    free(ret);
 
     tre_free_pattern(ptn);
-
-   /* 用法：
-     * 编译表达式
-     * 1. tre_pattern* re = tre_compile(regex);
-     * 匹配文本
-     * 2. tre_Match *ret = tre_match(re,text);
-     * 取出文本
-     * 3. printf("%s\n",ret->group(0).text);
-     */
 
     return 0;
 }

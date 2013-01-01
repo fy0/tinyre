@@ -1,4 +1,6 @@
 # coding:utf-8
+# tinyre v0.8.1 wrapper
+# fy, 2012-2013
 
 import _tre
 
@@ -12,6 +14,8 @@ class TRE_Pattern:
         ret = _tre._match(self.__pattern__,text)
         if ret:
             return TRE_Match(ret)
+    def sub(self, repl, text, count=0):
+        return _tre._sub(self.__pattern__, repl, text, count)
 
 class TRE_Match:
     def __init__(self,args):
@@ -48,4 +52,11 @@ def match(pattern, text, flag=0):
     ret = _tre._match(pattern.__pattern__, text)
     if ret:
         return TRE_Match(ret)
+
+def sub(pattern, repl, text, count=0, flag=0):
+    if pattern.__class__ != TRE_Pattern:
+        if pattern.__class__ == str:
+            return _tre._compile_and_sub(pattern, repl, text, count, flag)
+        return None
+    return _tre._sub(pattern.__pattern__, repl, text, count)
 
