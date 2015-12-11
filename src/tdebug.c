@@ -25,8 +25,6 @@ void debug_token_print(tre_Token* tokens, int len) {
 }
 
 void debug_ins_list_print(ParserMatchGroup* groups) {
-	int i;
-	int* data;
 	int gnum = 0;
 
 	for (ParserMatchGroup *g = groups; g; g = g->next) {
@@ -73,7 +71,7 @@ void debug_ins_list_print(ParserMatchGroup* groups) {
 
 void debug_printstr(char* head, char* tail) {
 	int code;
-	char *p = head;
+	const char *p = head;
 
 	while (p != tail) {
 		p = utf8_decode(p, &code);

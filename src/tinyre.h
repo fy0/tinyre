@@ -22,10 +22,10 @@ typedef struct tre_Pattern {
 /* 匹配后返回的结果 */
 
 typedef struct tre_group {
-	char* name;
-	char* head;
-	char* tail;
-	char* tmp;
+	const char* name;
+	const char* head;
+	const char* tail;
+	const char* tmp;
 } tre_group;
 
 typedef struct tre_Match {

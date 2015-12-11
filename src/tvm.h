@@ -52,7 +52,7 @@ typedef struct VMState {
 	VMSnap* snap;
 } VMState;
 
-VMState* vm_init(MatchGroup* groups, const char* input_str);
+VMState* vm_init(tre_Pattern* groups, const char* input_str);
 
 int vm_step(VMState* vms);
 tre_group* vm_exec(VMState* vms);
