@@ -25,20 +25,25 @@ tre_Pattern* tre_compile(char* s, char flag) {
     ret = tre_lexer(s, &tokens);
     
     if (ret >= 0) {
-        debug_token_print(tokens, ret);
-    } else if (ret == -1){
-		printf_u8("输入有误，{}中的内容不合法\n");
+#ifdef _DEBUG
+		debug_token_print(tokens, ret);
+#endif
+    } else if (ret == -1) {
+		printf_u8("input error，characters inside {...} invalid.\n");
 		exit(-1);
     }
 
     tk = tokens;
 
     tre_Pattern* groups = tre_parser(tokens, &tk);
+	free(tokens);
+
 	if (tk == NULL || tk < tokens + ret) {
-		printf_u8("无法解析!!!\n");
+		printf_u8("parsering falied!!!\n");
 	} else {
 		return groups;
 	}
+
 	return NULL;
 }
 

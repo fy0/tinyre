@@ -36,7 +36,8 @@ tre_Token* parser_char_set(tre_Token* tk) {
 	int num;
 	int* data;
 	tre_Token* start;
-    printf_u8("CHAR_SET\n");
+
+	TRE_DEBUG_PRINT("CHAR_SET\n");
 
 	paser_accept((tk++)->token == '[');
 	check_token(tk);
@@ -74,7 +75,8 @@ tre_Token* parser_char_set(tre_Token* tk) {
 }
 
 tre_Token* parser_char(tre_Token* tk) {
-    printf_u8("CHAR\n");
+	TRE_DEBUG_PRINT("CHAR\n");
+
 	tre_Token* ret = parser_single_char(tk);
 	if (ret) return ret;
 	return parser_char_set(tk);
@@ -99,7 +101,8 @@ tre_Token* parser_block(tre_Token* tk) {
     tre_Token* ret;
 	INS_List* last_ins;
 
-    printf_u8("BLOCK\n");
+	TRE_DEBUG_PRINT("BLOCK\n");
+
 	check_token(tk);
 	last_ins = m_cur->codes;
 
@@ -160,7 +163,8 @@ tre_Token* parser_group(tre_Token* tk) {
     tre_Token* ret;
 	ParserMatchGroup* last_group;
 
-    printf_u8("GROUP\n");
+	TRE_DEBUG_PRINT("GROUP\n");
+
 	paser_accept((tk++)->token == '(');
 	check_token(tk);
 
@@ -206,18 +210,24 @@ tre_Token* parser_blocks(tre_Token* tk) {
 }
 
 tre_Pattern* tre_parser(tre_Token* tk, tre_Token** last_token) {
+	tre_Token* tokens;
+	tre_Pattern* ret;
+
 	m_cur = m_start = _new(ParserMatchGroup, 1);
 	m_start->codes = m_start->codes_start = _new(INS_List, 1);
 	m_start->codes->next = NULL;
 	m_cur->next = NULL;
 
-    tre_Token* ret = parser_blocks(tk);
-	*last_token = ret;
+    tokens = parser_blocks(tk);
+	*last_token = tokens;
 
-	if (ret) {
+	if (tokens) {
 		int group_num;
+#ifdef _DEBUG
 		debug_ins_list_print(m_start);
-		return compact_group(m_start);
+#endif
+		ret = compact_group(m_start);
+		return ret;
 	}
 	return NULL;
 }
@@ -228,40 +238,55 @@ tre_Pattern* compact_group(ParserMatchGroup* parser_groups) {
 	int gnum = 0;
 	MatchGroup* g;
 	MatchGroup* groups;
-	ParserMatchGroup *pg;
+	ParserMatchGroup *pg, *pg_tmp;
+	INS_List *code, *code_tmp;
 	tre_Pattern* ret = _new(tre_Pattern, 1);
 
 	for (pg = parser_groups; pg; pg = pg->next) gnum++;
 	groups = _new(MatchGroup, gnum);
 
 	gnum = 0;
-	for (pg = parser_groups; pg; pg = pg->next) {
+	for (pg = parser_groups; pg; ) {
 		int code_lens = 0;
 		g = groups + gnum;
 
-		for (INS_List* code = pg->codes_start; code->next; code = code->next) {
+		for (code = pg->codes_start; code->next; code = code->next) {
 			code_lens += (code->len + sizeof(int));
 		}
 		// sizeof(int)*2 is space for group_end
 		data = g->codes = malloc(code_lens + sizeof(int)*2);
 		g->name = NULL;
 
-		for (INS_List* code = pg->codes_start; code->next; code = code->next) {
+		for (code = pg->codes_start; code->next; ) {
 			*data++ = code->ins;
 			if (code->len) {
 				memcpy(data, code->data, code->len);
 				data += (code->len / sizeof(int));
+				free(code->data);
 			}
+
+			code_tmp = code;
+			code = code->next;
+			free(code_tmp);
 		}
+		// the final one
+		free(code);
 
 		*data = ins_group_end;
 		*(data + 1) = gnum;
 
 		gnum++;
+
+		pg_tmp = pg;
+		pg = pg->next;
+		free(pg_tmp);
 	}
 
 	ret->groups = groups;
 	ret->num = gnum;
+
+	// TODO: why crash? i need valgrind.
+	 //free(parser_groups);
 
 	return ret;
 }

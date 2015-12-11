@@ -32,6 +32,10 @@ set(CMAKE_CXX_FLAGS_DEBUG "/MTd")
 
 add_definitions(-DUNICODE -D_UNICODE -DDEMO)
 
+IF(DEBUG_mode)
+    add_definitions(-D_DEBUG)
+ENDIF()
+
 file(GLOB_RECURSE project_headers src/*.h)
 file(GLOB_RECURSE project_cpps src/*.c)
 set (SRC_LIST ${project_headers} ${project_cpps})

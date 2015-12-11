@@ -4,11 +4,10 @@
  *
  */
 
-#include "lib/platform.h"
-
 #ifndef TINYRE_UTILS_H
 #define TINYRE_UTILS_H
 
+#include "lib/platform.h"
 #include "lib/utf8_lite.h"
 #include "tinyre.h"
 
@@ -32,6 +31,12 @@ static void putcode(int code) {
         free(ret);
     }
 }
+
+#ifdef _DEBUG
+#define TRE_DEBUG_PRINT(str) printf_u8(str)
+#else
+#define TRE_DEBUG_PRINT(expression) ;
+#endif
 
 #endif
 

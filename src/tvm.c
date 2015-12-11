@@ -67,7 +67,7 @@ _INLINE static
 int do_ins_cmp(VMState* vms) {
 	int char_code = *(vms->snap->codes + 1);
 
-	printf_u8("INS_CMP\n");
+	TRE_DEBUG_PRINT("INS_CMP\n");
 
 	if (char_code == vms->snap->last_chrcode) {
 		return 2;
@@ -99,7 +99,7 @@ _INLINE static
 int do_ins_cmp_spe(VMState* vms) {
 	int char_code = *(vms->snap->codes + 1);
 
-	printf_u8("INS_CMP_SPE\n");
+	TRE_DEBUG_PRINT("INS_CMP_SPE\n");
 
 	if (char_cmp_spe(char_code, vms->snap->last_chrcode)) {
 		return 2;
@@ -115,7 +115,7 @@ int do_ins_cmp_multi(VMState* vms) {
 	int* data = vms->snap->codes + 1;
 	int num = *data++;
 
-	printf_u8("INS_CMP_MULTI\n");
+	TRE_DEBUG_PRINT("INS_CMP_MULTI\n");
 
 	for (i = 0; i < num; i++) {
 		_type = *((int*)data + i * 2);
@@ -147,7 +147,7 @@ int do_ins_cmp_group(VMState* vms) {
 	int index = *(vms->snap->codes + 1);
 	MatchGroup* g = vms->groups + index;
 
-	printf_u8("INS_CMP_GROUP\n");
+	TRE_DEBUG_PRINT("INS_CMP_GROUP\n");
 
 	// new cache
 	rc = _new(RunCache, 1);
@@ -171,7 +171,7 @@ int do_ins_group_end(VMState* vms) {
 	RunCache *rc;
 	int index = *(vms->snap->codes + 1);
 
-	printf_u8("INS_GROUP_END\n");
+	TRE_DEBUG_PRINT("INS_GROUP_END\n");
 
 	// load cache
 	rc = vms->snap->run_cache;
@@ -201,7 +201,7 @@ int do_ins_checkpoint(VMState* vms) {
 	int llimit = *(vms->snap->codes + 1);
 	int rlimit = *(vms->snap->codes + 2);
 
-	printf_u8("INS_CHECK_POINT\n");
+	TRE_DEBUG_PRINT("INS_CHECK_POINT\n");
 
 	vms->snap->codes += 3;
 
