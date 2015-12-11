@@ -7,6 +7,25 @@
 #ifndef TINYRE_H
 #define TINYRE_H
 
+enum tre_Flag {
+	//FLAG_TEMPLATE = 1,
+	FLAG_IGNORECASE = 2,
+	//FLAG_LOCALE = 4,
+	FLAG_MULTILINE = 8,
+	FLAG_DOTALL = 16,
+	//FLAG_UNICODE = 32,
+	//FLAG_VERBOSE = 64,
+	//FLAG_DEBUG = 128,
+
+	//FLAG_T = 1,
+	FLAG_I = 2,
+	//FLAG_L = 4,
+	FLAG_M = 8,
+	FLAG_S = 16,
+	//FLAG_U = 32,
+	//FLAG_X = 64,
+};
+
 /* compiled groups */
 typedef struct MatchGroup {
 	char* name;

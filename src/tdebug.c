@@ -69,7 +69,7 @@ void debug_ins_list_print(ParserMatchGroup* groups) {
 	}
 }
 
-void debug_printstr(char* head, char* tail) {
+void debug_printstr(const char* head, const char* tail) {
 	int code;
 	const char *p = head;
 

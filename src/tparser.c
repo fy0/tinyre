@@ -3,9 +3,10 @@
 #include "tlexer.h"
 #include "tparser.h"
 #include "tvm.h"
+#include "tdebug.h"
 
 #define paser_accept(__stat) if (!((__stat))) return NULL;
-#define check_token(tk) if (tk == NULL || tk->token == NULL) return NULL;
+#define check_token(tk) if (tk == NULL || tk->token == 0) return NULL;
 
 ParserMatchGroup* m_start = NULL;
 ParserMatchGroup* m_cur = NULL;
@@ -17,7 +18,7 @@ tre_Token* parser_group(tre_Token* tk);
 
 tre_Token* parser_single_char(tre_Token* tk) {
 	if (tk->token == TK_CHAR || tk->token == TK_SPE_CHAR) {
-		// 代码生成
+		// CODE GENERATE
 		// CMP/CMP_SPE CODE
 		m_cur->codes->ins = tk->token == TK_CHAR ? ins_cmp : ins_cmp_spe;
 		m_cur->codes->data = _new(int, 1);
@@ -51,7 +52,7 @@ tre_Token* parser_char_set(tre_Token* tk) {
 	}
 	paser_accept(tk->token == ']');
 
-	// 代码生成
+	// CODE GENERATE
 	// CMP_MULTI NUM [TYPE1 CODE1], [TYPE2, CODE2], ...
 	num = tk - start;
 	m_cur->codes->ins = ins_cmp_multi;
@@ -84,7 +85,7 @@ tre_Token* parser_char(tre_Token* tk) {
 
 tre_Token* parser_other_tokens(tre_Token* tk) {
 	if (tk->token == '^' || tk->token == '$') {
-		// 代码生成
+		// CODE GENERATE
 		// MATCH_START/MATCH_END
 		m_cur->codes->ins = tk->token == '^' ? ins_match_start : ins_match_end;
 		m_cur->codes->len = 0;
@@ -134,7 +135,7 @@ tre_Token* parser_block(tre_Token* tk) {
 			;
 		}
 
-		// 代码生成
+		// CODE GENERATE
 		// CHECK_POINT LLIMIT RLIMIT
 		if (need_checkpoint) {
 			// 将上一条指令（必然是一条匹配指令复制一遍）
@@ -186,7 +187,7 @@ tre_Token* parser_group(tre_Token* tk) {
 
     paser_accept(tk->token == ')');
 
-	// 代码生成
+	// CODE GENERATE
 	// CMP_GROUP INDEX
 	last_group->codes->ins = ins_cmp_group;
 	last_group->codes->data = _new(int, 1);
@@ -222,7 +223,6 @@ tre_Pattern* tre_parser(tre_Token* tk, tre_Token** last_token) {
 	*last_token = tokens;
 
 	if (tokens) {
-		int group_num;
 #ifdef _DEBUG
 		debug_ins_list_print(m_start);
 #endif
