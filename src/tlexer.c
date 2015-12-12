@@ -5,7 +5,7 @@
 
 _INLINE static
 bool token_check(int code) {
-    const char other_tokens[] = "^$*+?[]{}()|";
+    const char other_tokens[] = "^$*+?[]{()|";
     for (const char *p = other_tokens; *p; p++) {
         if (code == *p) return true;
     }
@@ -39,7 +39,7 @@ void token_char_accept(int code, const char* s_end, const char** pp, tre_Token**
 }
 
 int tre_lexer(char* s, tre_Token** ppt) {
-    int code;
+    int i, code;
     int len = utf8_len(s);
     int rlen = strlen(s);
     const char* s_end = s + rlen + 1;
@@ -49,7 +49,7 @@ int tre_lexer(char* s, tre_Token** ppt) {
     
     int state = 0; // 0 NOMRAL | 1 [...] | 2 {...}
 
-    for (const char* p = utf8_decode(s, &code); p != s_end; p = utf8_decode(p, &code)) {
+	for (const char* p = utf8_decode(s, &code); p != s_end; ) {
         if (state == 0) {
             if (token_check(code)) {
                 pt->code = 0;
@@ -69,23 +69,72 @@ int tre_lexer(char* s, tre_Token** ppt) {
                     state = 0;
                 }
             }
-        } else if (state == 2) {     
-            pt->code = 0;
-            if ((char)code == '}') {
-                (pt++)->token = '}';
-                state = 0;
-            } else if ((char)code == ',' || isdigit(code)) {
-				if (code == ',') (pt++)->token = code;
-				else {
-					pt->token = TK_DIGIT;
-					(pt++)->code = code;
+        } else if (state == 2) {
+			int llimit = 0, rlimit = -1, start_code = code;
+			const char *start = p, *start2=p;
+
+			// read left limit a{1
+			if (isdigit(code)) {
+				while (isdigit(code)) {
+					p = utf8_decode(p, &code);
 				}
-            } else {
-                free(tokens);
-                *ppt = (tre_Token*)p;
-                return -1;
-            }
+
+				for (i = p - start - 1; i >= 0; i--) {
+					// tip: if regex is a{1,2}, now p point at 2, so -2
+					llimit += (*(p - i - 2) - '0') * (int)pow(10, i);
+				}
+			}
+			
+			// read comma a{1,
+			if ((char)code == ',') {
+				p = utf8_decode(p, &code);
+				start = p;
+			} else if ((char)code == '}') {
+				rlimit = llimit;
+				goto __write_code;
+			} else {
+				// falied, rollback
+				goto __bad_token;
+			}
+
+			// read left limit a{1, 2
+			if (isdigit(code)) {
+				while (isdigit(code)) {
+					p = utf8_decode(p, &code);
+				}
+				rlimit = 0;
+				for (i = p - start - 1; i >= 0; i--) {
+					rlimit += (*(p - i - 2) - '0') * (int)pow(10, i);
+				}
+			}
+			
+			// read right brace a{1,2} or a{1,}
+			if ((char)code == '}') {
+				// ok, rlimit is -1
+			} else {
+				// falied, rollback
+				goto __bad_token;
+			}
+
+		__write_code:
+			(pt-1)->code = llimit;
+			pt->code = rlimit;
+			(pt++)->token = '}';
+			goto __end;
+
+		__bad_token:
+			(pt-1)->code = (pt-1)->token;
+			(pt-1)->token = TK_CHAR;
+			p = start2;
+			code = start_code;
+			state = 0;
+			continue;
+
+		__end:
+			state = 0;
         }
+
+		p = utf8_decode(p, &code);
     }
 
     pt->code = 0;

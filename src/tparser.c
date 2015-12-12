@@ -132,7 +132,12 @@ tre_Token* parser_block(tre_Token* tk) {
 			rlimit = -1;
 			need_checkpoint = true;
 		} else if (tk->token == '{') {
-			;
+			if ((tk + 1)->token == '}') {
+				ret += 2;
+				llimit = tk->code;
+				rlimit = (tk + 1)->code;
+				need_checkpoint = true;
+			}
 		}
 
 		// CODE GENERATE

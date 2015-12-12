@@ -16,10 +16,10 @@ utf-8 supported.
 *    "\\"     Either escapes special characters or signals a special sequence.
 *    []       Indicates a set of characters.
 *    (...)    Matches the RE inside the parentheses. The contents can be retrieved or matched later in the string.
+*    {m,n}    Matches from m to n repetitions of the preceding RE.
 
 
 **Unsupported**:
-*    {m,n}    Matches from m to n repetitions of the preceding RE.
 *    {m,n}?   Non-greedy version of the above.
 *    [^]      A "^" as the first character indicates a complementing set.
 *    *?,+?,?? Non-greedy versions of the previous three special characters.

@@ -18,7 +18,7 @@ void debug_token_print(tre_Token* tokens, int len) {
                 printf("S ");
                 if (p->code != '.') putchar('\\');
                 putcode(p->code);
-            }
+			}
         }
         putchar('\n');
     }

@@ -257,7 +257,9 @@ int vm_step(VMState* vms) {
 				// match again when a? a+ a* a{x,y}
 				if (vms->snap->mr.enable) {
 					vms->snap->mr.cur_repeat++;
-					save_snap(vms);
+					if (vms->snap->mr.cur_repeat >= vms->snap->mr.llimit) {
+						save_snap(vms);
+					}
 					if (vms->snap->mr.cur_repeat == vms->snap->mr.rlimit) {
 						vms->snap->mr.enable = false;
 						vms->snap->codes += ret;
@@ -269,6 +271,7 @@ int vm_step(VMState* vms) {
 		} else {
 			// backtracking
 			if (vms->snap->prev) {
+				TRE_DEBUG_PRINT("INS_BACKTRACK\n");
 				vms->snap = vms->snap->prev;
 				vms->snap->mr.enable = false;
 				ret = jump_one_cmp(vms);

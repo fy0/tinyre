@@ -7,7 +7,6 @@
 enum TOKEN_LIST {
     TK_CHAR = FIRST_TOKEN,
     TK_SPE_CHAR,
-    TK_DIGIT,
 };
 
 typedef struct tre_Token {

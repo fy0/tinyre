@@ -29,7 +29,7 @@ tre_Pattern* tre_compile(char* s, char flag) {
 		debug_token_print(tokens, ret);
 #endif
     } else if (ret == -1) {
-		printf_u8("input error，characters inside {...} invalid.\n");
+		printf_u8("input error: characters inside {...} invalid.\n");
 		exit(-1);
     }
 
@@ -63,7 +63,7 @@ int main(int argc,char* argv[])
 {
 	int i;
 	tre_Pattern* pattern;
-	tre_Match* match;
+	tre_Match* match = NULL;
     platform_init();
 
     //tre_compile("a中+文*测?试\\醃b[1\\d2+\\][\\]\\a3]厑c\\de{1,5}\\", 0);
@@ -71,19 +71,21 @@ int main(int argc,char* argv[])
 	//MatchGroup* groups = tre_compile("ab?c+\\a*\\d([123]+(c)?d)jk123", 0);
 	//tre_Pattern* groups = tre_compile("(a([acd\\s123]))", 0);
 	//tre_Pattern* groups = tre_compile("^(a).?([acd\\s123])", 0);
-	pattern = tre_compile("^(bb)*a", 0);
-	match = tre_match(pattern, "bbbbabc");
+	pattern = tre_compile("^(bb)*a{1{2,}b", 0);
+	if (pattern) {
+		match = tre_match(pattern, "bbbba{11bc");
 
-	putchar('\n');
-	if (match->groups) {
-		for (i = 0; i < match->groupnum; i++) {
-			printf_u8("Group %2d: ", i);
-			if (match->groups[i].head && match->groups[i].tail) {
-				debug_printstr(match->groups[i].head, match->groups[i].tail);
-			} else {
-				printf_u8("match failed.");
+		putchar('\n');
+		if (match->groups) {
+			for (i = 0; i < match->groupnum; i++) {
+				printf_u8("Group %2d: ", i);
+				if (match->groups[i].head && match->groups[i].tail) {
+					debug_printstr(match->groups[i].head, match->groups[i].tail);
+				} else {
+					printf_u8("match failed.");
+				}
+				printf_u8("\n");
 			}
-			printf_u8("\n");
 		}
 	}
 
