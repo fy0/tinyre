@@ -2,7 +2,7 @@
 #ifndef TINYRE_LEXER_H
 #define TINYRE_LEXER_H
 
-#define FIRST_TOKEN	128
+#define FIRST_TOKEN    128
 
 enum TOKEN_LIST {
     TK_CHAR = FIRST_TOKEN,

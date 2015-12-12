@@ -8,43 +8,43 @@
 #define TINYRE_H
 
 enum tre_Flag {
-	//FLAG_TEMPLATE = 1,
-	FLAG_IGNORECASE = 2,
-	//FLAG_LOCALE = 4,
-	FLAG_MULTILINE = 8,
-	FLAG_DOTALL = 16,
-	//FLAG_UNICODE = 32,
-	//FLAG_VERBOSE = 64,
-	//FLAG_DEBUG = 128,
+    //FLAG_TEMPLATE = 1,
+    FLAG_IGNORECASE = 2,
+    //FLAG_LOCALE = 4,
+    FLAG_MULTILINE = 8,
+    FLAG_DOTALL = 16,
+    //FLAG_UNICODE = 32,
+    //FLAG_VERBOSE = 64,
+    //FLAG_DEBUG = 128,
 
-	//FLAG_T = 1,
-	FLAG_I = 2,
-	//FLAG_L = 4,
-	FLAG_M = 8,
-	FLAG_S = 16,
-	//FLAG_U = 32,
-	//FLAG_X = 64,
+    //FLAG_T = 1,
+    FLAG_I = 2,
+    //FLAG_L = 4,
+    FLAG_M = 8,
+    FLAG_S = 16,
+    //FLAG_U = 32,
+    //FLAG_X = 64,
 };
 
 /* compiled groups */
 typedef struct MatchGroup {
-	char* name;
-	int* codes;
+    char* name;
+    int* codes;
 } MatchGroup;
 
 typedef struct tre_Pattern {
-	int num;
-	MatchGroup* groups;
+    int num;
+    MatchGroup* groups;
     char flag;
 } tre_Pattern;
 
 /* 匹配后返回的结果 */
 
 typedef struct tre_group {
-	const char* name;
-	const char* head;
-	const char* tail;
-	const char* tmp;
+    const char* name;
+    const char* head;
+    const char* tail;
+    const char* tmp;
 } tre_group;
 
 typedef struct tre_Match {

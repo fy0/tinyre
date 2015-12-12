@@ -18,38 +18,38 @@
 #define ins_group_end    10
 
 typedef struct MatchRepeat {
-	bool enable;
-	int cur_repeat;
-	int llimit;
-	int rlimit;
+    bool enable;
+    int cur_repeat;
+    int llimit;
+    int rlimit;
 } MatchRepeat;
 
 typedef struct RunCache {
-	int* codes_cache;
-	struct RunCache* prev;
-	MatchRepeat mr;
+    int* codes_cache;
+    struct RunCache* prev;
+    MatchRepeat mr;
 } RunCache;
 
 
 // Ö´ÐÐ×´Ì¬
 
 typedef struct VMSnap {
-	int last_chrcode;
-	const char* last_pos;
-	const char* str_pos;
-	RunCache* run_cache;
-	int* codes;
-	MatchRepeat mr;
-	struct VMSnap* prev;
+    int last_chrcode;
+    const char* last_pos;
+    const char* str_pos;
+    RunCache* run_cache;
+    int* codes;
+    MatchRepeat mr;
+    struct VMSnap* prev;
 } VMSnap;
 
 typedef struct VMState {
-	const char* input_str;
-	int group_num;
-	tre_group* match_results;
-	MatchGroup* groups;
+    const char* input_str;
+    int group_num;
+    tre_group* match_results;
+    MatchGroup* groups;
 
-	VMSnap* snap;
+    VMSnap* snap;
 } VMState;
 
 VMState* vm_init(tre_Pattern* groups, const char* input_str);
