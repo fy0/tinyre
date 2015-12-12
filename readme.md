@@ -34,7 +34,9 @@ utf-8 supported.
 *    (?<=...) Matches if preceded by ... (must be fixed length).
 *    (?<!...) Matches if not preceded by ... (must be fixed length).
 *    (?(id/name)yes|no) Matches yes pattern if the group with id/name matched, the (optional) no pattern otherwise.
-
+*    Flag: DOTALL
+*    Flag: IGNORECASE
+*    Flag: MULTILINE
 
 **Still not work (but accepted)**: 
 *    "^"      Matches the start of the string.
