@@ -4,21 +4,25 @@
 
 #include "tinyre.h"
 
-#define ins_cmp           1
-#define ins_cmp_spe       2
-#define ins_cmp_multi     3
-#define ins_ncmp_multi    4
-#define ins_cmp_group     5
+#define ins_cmp                   1
+#define ins_cmp_spe               2
+#define ins_cmp_multi             3
+#define ins_ncmp_multi            4
+#define ins_cmp_group             5
 
-#define ins_check_point  20
+#define ins_check_point           20
+#define ins_check_point_no_greed  21
 
-#define ins_match_start  30 // need a better name
-#define ins_match_end    31
+#define ins_match_start           30 // need a better name
+#define ins_match_end             31
 
-#define ins_group_end    10
+#define ins_group_end             10
+
 
 typedef struct MatchRepeat {
-    bool enable;
+    // enable == 1 greedy match
+    // enable == 2 non-greedy match
+    short int enable;
     int cur_repeat;
     int llimit;
     int rlimit;

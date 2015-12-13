@@ -111,7 +111,7 @@ tre_Token* parser_block(tre_Token* tk) {
     if (!ret) ret = parser_group(tk);
 
     if (ret) {
-        bool need_checkpoint = false;
+        bool need_checkpoint = false, greed = true;
         int llimit, rlimit;
 
         tk = ret;
@@ -137,6 +137,15 @@ tre_Token* parser_block(tre_Token* tk) {
                 llimit = tk->code;
                 rlimit = (tk + 1)->code;
                 need_checkpoint = true;
+            } else {
+                return NULL;
+            }
+        }
+
+        if (need_checkpoint) {
+            if (ret->token == '?') {
+                ret ++;
+                greed = false;
             }
         }
 
@@ -150,7 +159,7 @@ tre_Token* parser_block(tre_Token* tk) {
             m_cur->codes = m_cur->codes->next;
             m_cur->codes->next = NULL;
 
-            last_ins->ins = ins_check_point;
+            last_ins->ins = greed ? ins_check_point : ins_check_point_no_greed;
             last_ins->data = _new(int, 2);
             last_ins->len = sizeof(int) * 2;
             *(int*)last_ins->data = llimit;

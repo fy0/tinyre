@@ -67,7 +67,11 @@ _INLINE static
 int do_ins_cmp(VMState* vms) {
     int char_code = *(vms->snap->codes + 1);
 
-    TRE_DEBUG_PRINT("INS_CMP\n");
+#ifdef _DEBUG
+    printf_u8("INS_CMP ");
+    putcode(char_code);
+    putchar('\n');
+#endif
 
     if (char_code == vms->snap->last_chrcode) {
         return 2;
@@ -158,7 +162,7 @@ int do_ins_cmp_group(VMState* vms) {
     // load group code
     vms->snap->run_cache = rc;
     vms->snap->codes = g->codes;
-    vms->snap->mr.enable = false;
+    vms->snap->mr.enable = 0;
 
     // set match result, value of head
     vms->match_results[index].tmp = vms->snap->last_pos;
@@ -193,15 +197,17 @@ int do_ins_group_end(VMState* vms) {
 
 _INLINE static
 void save_snap(VMState* vms) {
+    TRE_DEBUG_PRINT("INS_SAVE_SNAP\n");
     vms->snap->prev = snap_dup(vms->snap);
 }
 
 _INLINE static
-int do_ins_checkpoint(VMState* vms) {
+int do_ins_checkpoint(VMState* vms, bool greed) {
     int llimit = *(vms->snap->codes + 1);
     int rlimit = *(vms->snap->codes + 2);
 
-    TRE_DEBUG_PRINT("INS_CHECK_POINT\n");
+    if (greed) TRE_DEBUG_PRINT("INS_CHECK_POINT\n");
+    else TRE_DEBUG_PRINT("INS_CHECK_POINT_NG\n");
 
     vms->snap->codes += 3;
 
@@ -216,7 +222,7 @@ int do_ins_checkpoint(VMState* vms) {
         return -2;
     }
 
-    vms->snap->mr.enable = true;
+    vms->snap->mr.enable = greed ? 1 : 2;
     vms->snap->mr.llimit = llimit;
     vms->snap->mr.rlimit = rlimit;
     vms->snap->mr.cur_repeat = 0;
@@ -224,6 +230,11 @@ int do_ins_checkpoint(VMState* vms) {
     // save snap when reach llimit
     if (llimit == 0) {
         save_snap(vms);
+
+        // no greedy match
+        if (!greed) {
+            return jump_one_cmp(vms);
+        }
     }
 
     return 1;
@@ -256,13 +267,24 @@ int vm_step(VMState* vms) {
             if (cur_ins != ins_cmp_group) {
                 // match again when a? a+ a* a{x,y}
                 if (vms->snap->mr.enable) {
+                    bool greed = vms->snap->mr.enable == 1 ? true : false;
                     vms->snap->mr.cur_repeat++;
-                    if (vms->snap->mr.cur_repeat >= vms->snap->mr.llimit) {
-                        save_snap(vms);
-                    }
-                    if (vms->snap->mr.cur_repeat == vms->snap->mr.rlimit) {
-                        vms->snap->mr.enable = false;
-                        vms->snap->codes += ret;
+
+                    if (greed) {
+                        if (vms->snap->mr.cur_repeat >= vms->snap->mr.llimit) {
+                            save_snap(vms);
+                        }
+                        if (vms->snap->mr.cur_repeat == vms->snap->mr.rlimit) {
+                            vms->snap->mr.enable = 0;
+                            vms->snap->codes += ret;
+                        }
+                    } else {
+                        if (vms->snap->mr.cur_repeat >= vms->snap->mr.llimit) {
+                            if (vms->snap->mr.cur_repeat != vms->snap->mr.rlimit)
+                                save_snap(vms);
+                            vms->snap->mr.enable = 0;
+                            vms->snap->codes += ret;
+                        }
                     }
                 } else {
                     vms->snap->codes += ret;
@@ -271,14 +293,24 @@ int vm_step(VMState* vms) {
         } else {
             // backtracking
             if (vms->snap->prev) {
-                TRE_DEBUG_PRINT("INS_BACKTRACK\n");
+                bool greed;
                 vms->snap = vms->snap->prev;
-                vms->snap->mr.enable = false;
-                ret = jump_one_cmp(vms);
+                greed = vms->snap->mr.enable == 1 ? true : false;
+
+                if (greed) TRE_DEBUG_PRINT("INS_BACKTRACK\n");
+                else TRE_DEBUG_PRINT("INS_BACKTRACK_NG\n");
+
+                if (greed) {
+                    vms->snap->mr.enable = 0;
+                    ret = jump_one_cmp(vms);
+                }
+                else ret = 1;
             }
         }
     } else if (cur_ins == ins_check_point) {
-        ret = do_ins_checkpoint(vms);
+        ret = do_ins_checkpoint(vms, true);
+    } else if (cur_ins == ins_check_point_no_greed) {
+        ret = do_ins_checkpoint(vms, false);
     } else if (cur_ins == ins_match_start) {
         // ^
         vms->snap->codes += 1;

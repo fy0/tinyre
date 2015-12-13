@@ -71,9 +71,9 @@ int main(int argc,char* argv[])
     //MatchGroup* groups = tre_compile("ab?c+\\a*\\d([123]+(c)?d)jk123", 0);
     //tre_Pattern* groups = tre_compile("(a([acd\\s123]))", 0);
     //tre_Pattern* groups = tre_compile("^(a).?([acd\\s123])", 0);
-    pattern = tre_compile("^(bb)*a{1{2,}b", 0);
+    pattern = tre_compile("^(bb)*?a{1{,}c+?", 0);
     if (pattern) {
-        match = tre_match(pattern, "bbbba{11bc");
+        match = tre_match(pattern, "bbbba{1111c");
 
         putchar('\n');
         if (match->groups) {
