@@ -20,6 +20,8 @@ utf-8 supported.
 *    {m,n}    Matches from m to n repetitions of the preceding RE.
 *    {m,n}?   Non-greedy version of the above.
 *    *?,+?,?? Non-greedy versions of the previous three special characters.
+*    "^"      Matches the start of the string.
+*    "$"      Matches the end of the string or just before the newline at the end of the string.
 
 
 **Unsupported**:
@@ -37,10 +39,6 @@ utf-8 supported.
 *    Flag: DOTALL
 *    Flag: IGNORECASE
 *    Flag: MULTILINE
-
-**Still not work (but accepted)**: 
-*    "^"      Matches the start of the string.
-*    "$"      Matches the end of the string or just before the newline at the end of the string.
 
 
 Some of the functions in this module takes flags as optional parameters:

@@ -13,7 +13,7 @@
 #define ins_check_point           20
 #define ins_check_point_no_greed  21
 
-#define ins_match_start           30 // need a better name
+#define ins_match_start           30
 #define ins_match_end             31
 
 #define ins_group_end             10

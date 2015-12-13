@@ -72,9 +72,9 @@ int main(int argc,char* argv[])
     //tre_Pattern* groups = tre_compile("(a([acd\\s123]))", 0);
     //tre_Pattern* groups = tre_compile("^(a).?([acd\\s123])", 0);
     //pattern = tre_compile("^(bb)*?a{1{,}c+?", 0);
-    pattern = tre_compile("a[^23]c", 0);
+    pattern = tre_compile("^a$b?", 0);
     if (pattern) {
-        match = tre_match(pattern, "a c");
+        match = tre_match(pattern, "ab");
 
         putchar('\n');
         if (match->groups) {

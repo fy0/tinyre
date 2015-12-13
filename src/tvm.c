@@ -202,6 +202,25 @@ void save_snap(VMState* vms) {
 }
 
 _INLINE static
+int try_backtracking(VMState* vms) {
+    if (vms->snap->prev) {
+        bool greed;
+        vms->snap = vms->snap->prev;
+        greed = vms->snap->mr.enable == 1 ? true : false;
+
+        if (greed) TRE_DEBUG_PRINT("INS_BACKTRACK\n");
+        else TRE_DEBUG_PRINT("INS_BACKTRACK_NG\n");
+
+        if (greed) {
+            vms->snap->mr.enable = 0;
+            return jump_one_cmp(vms);
+        }
+        return 1;
+    }
+    return 0;
+}
+
+_INLINE static
 int do_ins_checkpoint(VMState* vms, bool greed) {
     int llimit = *(vms->snap->codes + 1);
     int rlimit = *(vms->snap->codes + 2);
@@ -293,21 +312,7 @@ int vm_step(VMState* vms) {
                 }
             }
         } else {
-            // backtracking
-            if (vms->snap->prev) {
-                bool greed;
-                vms->snap = vms->snap->prev;
-                greed = vms->snap->mr.enable == 1 ? true : false;
-
-                if (greed) TRE_DEBUG_PRINT("INS_BACKTRACK\n");
-                else TRE_DEBUG_PRINT("INS_BACKTRACK_NG\n");
-
-                if (greed) {
-                    vms->snap->mr.enable = 0;
-                    ret = jump_one_cmp(vms);
-                }
-                else ret = 1;
-            }
+            ret = try_backtracking(vms);
         }
     } else if (cur_ins == ins_check_point) {
         ret = do_ins_checkpoint(vms, true);
@@ -315,12 +320,20 @@ int vm_step(VMState* vms) {
         ret = do_ins_checkpoint(vms, false);
     } else if (cur_ins == ins_match_start) {
         // ^
-        vms->snap->codes += 1;
-        ret = 1;
+        if (vms->snap->last_pos != vms->input_str) {
+            ret = try_backtracking(vms);
+        } else {
+            vms->snap->codes += 1;
+            ret = 1;
+        }
     } else if (cur_ins == ins_match_end) {
         // $
-        vms->snap->codes += 1;
-        ret = 1;
+        if (vms->snap->last_chrcode != 0) {
+            ret = try_backtracking(vms);
+        } else {
+            vms->snap->codes += 1;
+            ret = 1;
+        }
     }
 
     return ret;
