@@ -47,9 +47,6 @@ Some of the functions in this module takes flags as optional parameters:
 *    S  DOTALL      "." matches any character at all, including the newline.
 
 
-No greedy match and other flags are still unsupported.
-
-
 ## Use
 
 ```C
