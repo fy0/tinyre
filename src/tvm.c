@@ -112,7 +112,7 @@ int do_ins_cmp_spe(VMState* vms) {
 }
 
 _INLINE static
-int do_ins_cmp_multi(VMState* vms) {
+int do_ins_cmp_multi(VMState* vms, bool is_ncmp) {
     int i;
     int _type, _code;
     bool match = false;
@@ -138,11 +138,11 @@ int do_ins_cmp_multi(VMState* vms) {
         }
     }
 
-    if (match) {
-        return (num * 2 + 2);
+    if (is_ncmp) {
+        return match ? 0 : (num * 2 + 2);
+    } else {
+        return match ? (num * 2 + 2) : 0;
     }
-
-    return 0;
 }
 
 _INLINE static
@@ -252,7 +252,9 @@ int vm_step(VMState* vms) {
         } else if (cur_ins == ins_cmp_spe) {
             ret = do_ins_cmp_spe(vms);
         } else if (cur_ins == ins_cmp_multi) {
-            ret = do_ins_cmp_multi(vms);
+            ret = do_ins_cmp_multi(vms, false);
+        } else if (cur_ins == ins_ncmp_multi) {
+            ret = do_ins_cmp_multi(vms, true);
         } else if (cur_ins == ins_cmp_group) {
             ret = do_ins_cmp_group(vms);
         } else if (cur_ins == ins_group_end) {

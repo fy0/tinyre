@@ -61,12 +61,16 @@ int tre_lexer(char* s, tre_Token** ppt) {
                 token_char_accept(code, s_end, &p, &pt);
             }
         } else if (state == 1) {
-            token_char_accept(code, s_end, &p, &pt);
+            if ((pt - 1)->token == '[' && code == '^')
+                (pt - 1)->code = 1;
+            else {
+                token_char_accept(code, s_end, &p, &pt);
 
-            if ((pt-1)->token == TK_CHAR) {
-                if ((pt-1)->code == ']') {
-                    (pt-1)->token = ']';
-                    state = 0;
+                if ((pt-1)->token == TK_CHAR) {
+                    if ((pt-1)->code == ']') {
+                        (pt-1)->token = ']';
+                        state = 0;
+                    }
                 }
             }
         } else if (state == 2) {

@@ -36,11 +36,14 @@ tre_Token* parser_single_char(tre_Token* tk) {
 tre_Token* parser_char_set(tre_Token* tk) {
     int num;
     int* data;
+    bool is_ncmp;
     tre_Token* start;
 
     TRE_DEBUG_PRINT("CHAR_SET\n");
 
-    paser_accept((tk++)->token == '[');
+    paser_accept(tk->token == '[');
+    is_ncmp = (tk->code == 1) ? true : false;
+    tk++;
     check_token(tk);
     start = tk;
     paser_accept(tk->token == TK_CHAR || tk->token == TK_SPE_CHAR);
@@ -55,7 +58,7 @@ tre_Token* parser_char_set(tre_Token* tk) {
     // CODE GENERATE
     // CMP_MULTI NUM [TYPE1 CODE1], [TYPE2, CODE2], ...
     num = tk - start;
-    m_cur->codes->ins = ins_cmp_multi;
+    m_cur->codes->ins = is_ncmp ? ins_ncmp_multi : ins_cmp_multi;
     m_cur->codes->data = _new(int, 2 * num + 1);
     m_cur->codes->len = sizeof(int) * (2 * num + 1);
     // END

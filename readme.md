@@ -15,6 +15,7 @@ utf-8 supported.
 *    "?"      Matches 0 or 1 (greedy) of the preceding RE.
 *    "\\"     Either escapes special characters or signals a special sequence.
 *    []       Indicates a set of characters.
+*    [^]      A "^" as the first character indicates a complementing set.
 *    (...)    Matches the RE inside the parentheses. The contents can be retrieved or matched later in the string.
 *    {m,n}    Matches from m to n repetitions of the preceding RE.
 *    {m,n}?   Non-greedy version of the above.
@@ -22,7 +23,6 @@ utf-8 supported.
 
 
 **Unsupported**:
-*    [^]      A "^" as the first character indicates a complementing set.
 *    "|"      A|B, creates an RE that will match either A or B.
 *    (?ims) Set the I, M or S flag for the RE (see below).
 *    (?:...)  Non-grouping version of regular parentheses.
