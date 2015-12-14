@@ -12,6 +12,7 @@
 
 #define ins_check_point           20
 #define ins_check_point_no_greed  21
+#define ins_save_snap             22
 
 #define ins_match_start           30
 #define ins_match_end             31
@@ -29,6 +30,7 @@ typedef struct MatchRepeat {
 } MatchRepeat;
 
 typedef struct RunCache {
+    int cur_group;
     int* codes_cache;
     struct RunCache* prev;
     MatchRepeat mr;
@@ -38,6 +40,7 @@ typedef struct RunCache {
 // Ö´ÐÐ×´Ì¬
 
 typedef struct VMSnap {
+    int cur_group;
     int last_chrcode;
     const char* last_pos;
     const char* str_pos;

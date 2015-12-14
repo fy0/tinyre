@@ -9,6 +9,7 @@
 #include <Windows.h>
 #endif
 
+
 /*
 ** Decode one UTF-8 sequence, returning NULL if byte sequence is invalid.
 */

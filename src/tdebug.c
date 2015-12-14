@@ -22,6 +22,7 @@ void debug_token_print(tre_Token* tokens, int len) {
         }
         putchar('\n');
     }
+    putchar('\n');
 }
 
 void debug_ins_list_print(ParserMatchGroup* groups) {
@@ -54,14 +55,15 @@ void debug_ins_list_print(ParserMatchGroup* groups) {
             } else if (code->ins == ins_cmp_group) {
                 printf_u8("%15s %d\n", "CMP_GROUP", *(int*)code->data);
             } else if (code->ins == ins_check_point) {
-                printf_u8("%15s %d %d\n", "CHECK_POINT", *(int*)code->data, *((int*)code->data+1));
+                printf_u8("%15s %d %d\n", "CHECK_POINT", *(int*)code->data, *((int*)code->data + 1));
+            } else if (code->ins == ins_check_point_no_greed) {
+                printf_u8("%15s %d %d\n", "CHECK_POINT_NG", *(int*)code->data, *((int*)code->data + 1));
             } else if (code->ins == ins_match_start) {
                 printf_u8("%15s\n", "MATCH_START");
             } else if (code->ins == ins_match_end) {
                 printf_u8("%15s\n", "MATCH_END");
             } else if (code->ins == ins_group_end) {
-                // DUMMY
-                printf_u8("%15s\n", "GROUP_END");
+                printf_u8("%15s %d\n", "GROUP_END", *(int*)code->data);
             }
         }
 
@@ -72,6 +74,8 @@ void debug_ins_list_print(ParserMatchGroup* groups) {
 void debug_printstr(const char* head, const char* tail) {
     int code;
     const char *p = head;
+
+    if (tail <= head) return;
 
     while (p != tail) {
         p = utf8_decode(p, &code);

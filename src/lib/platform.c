@@ -19,6 +19,7 @@ wchar_t* _utf8_to_16(const char* str) {
 }
 #endif
 
+
 void printf_u8(const char *fmt, ...) {
 #if defined(PLATFORM_WINDOWS)
     // 在 windows 控制台输出一个 utf8 字符串，代价巨大

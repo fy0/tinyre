@@ -11,10 +11,17 @@ typedef struct INS_List {
     struct INS_List* next;
 } INS_List;
 
+typedef struct OR_List {
+    INS_List* codes;
+    struct OR_List* next;
+} OR_List;
+
 typedef struct ParserMatchGroup {
     char* name;
     INS_List* codes;
     INS_List* codes_start;
+    int or_num;
+    OR_List* or_list;
     struct ParserMatchGroup* next;
 } ParserMatchGroup;
 

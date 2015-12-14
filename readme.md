@@ -22,10 +22,10 @@ utf-8 supported.
 *    *?,+?,?? Non-greedy versions of the previous three special characters.
 *    "^"      Matches the start of the string.
 *    "$"      Matches the end of the string or just before the newline at the end of the string.
+*    "|"      A|B, creates an RE that will match either A or B.
 
 
 **Unsupported**:
-*    "|"      A|B, creates an RE that will match either A or B.
 *    (?ims) Set the I, M or S flag for the RE (see below).
 *    (?:...)  Non-grouping version of regular parentheses.
 *    (?P<name>...) The substring matched by the group is accessible by name.

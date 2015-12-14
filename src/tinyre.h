@@ -54,7 +54,7 @@ typedef struct tre_Match {
 
 /* 表达式编译和匹配 */
 tre_Pattern* tre_compile(char* s, char flag);
-//tre_Match* tre_match(tre_Pattern* tp, char* str);
+tre_Match* tre_match(tre_Pattern* tp, const char* str);
 
 /* 释放内存占用 */
 //void tre_free_pattern(tre_Pattern *ptn);

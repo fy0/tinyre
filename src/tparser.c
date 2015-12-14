@@ -101,8 +101,40 @@ tre_Token* parser_other_tokens(tre_Token* tk) {
     return NULL;
 }
 
+tre_Token* parser_or(tre_Token* tk) {
+    // try to catch a |
+    OR_List *or, *or2;
+    paser_accept(tk->token == '|');
+    or = _new(OR_List, 1);
+    or->codes = m_cur->codes;
+    or->next = NULL;
+
+    if (m_cur->or_list) {
+        or2 = m_cur->or_list;
+        while (or2->next) {
+            or2 = or2->next;
+        }
+        or2->next = or;
+    } else {
+        m_cur->or_list = or;
+    }
+    m_cur->or_num++;
+
+    // CODE GENERATE
+    // GROUP_END -1
+    m_cur->codes->ins = ins_group_end;
+    m_cur->codes->data = _new(int, 1);
+    m_cur->codes->len = sizeof(int);
+    *(int*)m_cur->codes->data = -1;
+    m_cur->codes->next = _new(INS_List, 1);
+    m_cur->codes = m_cur->codes->next;
+    m_cur->codes->next = NULL;
+    // END
+    return tk + 1;
+}
+
 tre_Token* parser_block(tre_Token* tk) {
-    tre_Token* ret;
+    tre_Token *ret, *ret2;
     INS_List* last_ins;
 
     TRE_DEBUG_PRINT("BLOCK\n");
@@ -112,6 +144,10 @@ tre_Token* parser_block(tre_Token* tk) {
 
     ret = parser_char(tk);
     if (!ret) ret = parser_group(tk);
+    if (!ret) {
+        ret2 = parser_or(tk);
+        if (ret2) return ret2;
+    }
 
     if (ret) {
         bool need_checkpoint = false, greed = true;
@@ -198,6 +234,8 @@ tre_Token* parser_group(tre_Token* tk) {
     m_cur->next->codes = m_cur->next->codes_start = _new(INS_List, 1);
     m_cur = m_cur->next;
     m_cur->next = NULL;
+    m_cur->or_num = 0;
+    m_cur->or_list = NULL;
 
     ret = tk;
     while ((ret = parser_block(ret))) tk = ret;
@@ -235,6 +273,8 @@ tre_Pattern* tre_parser(tre_Token* tk, tre_Token** last_token) {
     m_start->codes = m_start->codes_start = _new(INS_List, 1);
     m_start->codes->next = NULL;
     m_cur->next = NULL;
+    m_cur->or_num = 0;
+    m_cur->or_list = NULL;
 
     tokens = parser_blocks(tk);
     *last_token = tokens;
@@ -257,6 +297,7 @@ tre_Pattern* compact_group(ParserMatchGroup* parser_groups) {
     MatchGroup* groups;
     ParserMatchGroup *pg, *pg_tmp;
     INS_List *code, *code_tmp;
+    OR_List *or_lst;
     tre_Pattern* ret = _new(tre_Pattern, 1);
 
     for (pg = parser_groups; pg; pg = pg->next) gnum++;
@@ -264,18 +305,39 @@ tre_Pattern* compact_group(ParserMatchGroup* parser_groups) {
 
     gnum = 0;
     for (pg = parser_groups; pg; ) {
-        int code_lens = 0;
+        int code_lens = pg->or_num * sizeof(int) * 2;
+        or_lst = pg->or_list;
         g = groups + gnum;
 
         for (code = pg->codes_start; code->next; code = code->next) {
             code_lens += (code->len + sizeof(int));
         }
+
         // sizeof(int)*2 is space for group_end
-        data = g->codes = malloc(code_lens + sizeof(int)*2);
+        g->codes = malloc(code_lens + sizeof(int) * 2);
         g->name = NULL;
+
+        if (pg->or_num) {
+            code_lens = pg->or_num * 2 * sizeof(int); // recount
+
+            data = g->codes + (pg->or_num-1) * 2;
+            for (code = pg->codes_start; true; code = code->next) {
+                while (or_lst && or_lst->codes == code) {
+                    *data++ = ins_save_snap;
+                    *data = code_lens;
+                    data -= 3;
+                    or_lst = or_lst->next;
+                }
+                if (!code->next) break;
+                code_lens += (code->len + sizeof(int));
+            }
+        }
+
+        data = g->codes + pg->or_num * 2;
 
         for (code = pg->codes_start; code->next; ) {
             *data++ = code->ins;
+
             if (code->len) {
                 memcpy(data, code->data, code->len);
                 data += (code->len / sizeof(int));

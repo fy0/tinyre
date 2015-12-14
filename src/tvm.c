@@ -13,6 +13,7 @@ VMSnap* snap_dup(VMSnap* src) {
     snap->last_pos = src->last_pos;
     snap->str_pos = src->str_pos;
     snap->mr = src->mr;
+    snap->cur_group = src->cur_group;
     snap->prev = src->prev;
 
     if (src->run_cache) {
@@ -158,11 +159,13 @@ int do_ins_cmp_group(VMState* vms) {
     rc->codes_cache = vms->snap->codes;
     rc->prev = vms->snap->run_cache;
     rc->mr = vms->snap->mr;
+    rc->cur_group = vms->snap->cur_group;
 
     // load group code
     vms->snap->run_cache = rc;
     vms->snap->codes = g->codes;
     vms->snap->mr.enable = 0;
+    vms->snap->cur_group = index;
 
     // set match result, value of head
     vms->match_results[index].tmp = vms->snap->last_pos;
@@ -174,6 +177,7 @@ _INLINE static
 int do_ins_group_end(VMState* vms) {
     RunCache *rc;
     int index = *(vms->snap->codes + 1);
+    if (index == -1) index = vms->snap->cur_group;
 
     TRE_DEBUG_PRINT("INS_GROUP_END\n");
 
@@ -183,6 +187,7 @@ int do_ins_group_end(VMState* vms) {
         vms->snap->codes = rc->codes_cache;
         vms->snap->run_cache = rc->prev;
         vms->snap->mr = rc->mr;
+        vms->snap->cur_group = rc->cur_group;
         free(rc);
     }
 
@@ -259,12 +264,26 @@ int do_ins_checkpoint(VMState* vms, bool greed) {
     return 1;
 }
 
+
+_INLINE static
+int do_ins_save_snap(VMState* vms) {
+    int* tmp;
+    tmp = vms->snap->codes;
+    // group start + offset + length of group_end
+    vms->snap->codes = vms->groups[vms->snap->cur_group].codes + (*(vms->snap->codes + 1) / sizeof(int)) + 2;
+    save_snap(vms);
+    vms->snap->codes = tmp + 2;
+    return 2;
+}
+
+
 int vm_step(VMState* vms) {
     int ret;
     int cur_ins = *vms->snap->codes;
 
     if (cur_ins >= ins_cmp && cur_ins <= ins_group_end) {
         // no greedy match
+        int group_cache;
 
         if (cur_ins == ins_cmp) {
             ret = do_ins_cmp(vms);
@@ -277,6 +296,7 @@ int vm_step(VMState* vms) {
         } else if (cur_ins == ins_cmp_group) {
             ret = do_ins_cmp_group(vms);
         } else if (cur_ins == ins_group_end) {
+            group_cache = vms->snap->cur_group;
             ret = do_ins_group_end(vms);
         }
 
@@ -299,9 +319,17 @@ int vm_step(VMState* vms) {
                             vms->snap->mr.enable = 0;
                             vms->snap->codes += ret;
                         }
+                        if (cur_ins == ins_group_end && vms->snap->mr.cur_repeat >= vms->snap->mr.llimit && vms->snap->mr.cur_repeat != vms->snap->mr.rlimit) {
+                            // match "nothing" is no sense : (|)
+                            if (vms->match_results[group_cache].head == vms->match_results[group_cache].tail) {
+                                vms->snap->mr.enable = 0;
+                                vms->snap->codes += 2;
+                            }
+                        }
                     } else {
                         if (vms->snap->mr.cur_repeat >= vms->snap->mr.llimit) {
-                            if (vms->snap->mr.cur_repeat != vms->snap->mr.rlimit)
+                            if (vms->snap->mr.cur_repeat != vms->snap->mr.rlimit && 
+                                vms->match_results[group_cache].head != vms->match_results[group_cache].tail)
                                 save_snap(vms);
                             vms->snap->mr.enable = 0;
                             vms->snap->codes += ret;
@@ -318,6 +346,8 @@ int vm_step(VMState* vms) {
         ret = do_ins_checkpoint(vms, true);
     } else if (cur_ins == ins_check_point_no_greed) {
         ret = do_ins_checkpoint(vms, false);
+    } else if (cur_ins == ins_save_snap) {
+        ret = do_ins_save_snap(vms);
     } else if (cur_ins == ins_match_start) {
         // ^
         if (vms->snap->last_pos != vms->input_str) {
@@ -352,6 +382,7 @@ VMState* vm_init(tre_Pattern* groups_info, const char* input_str) {
 
     // init first snap
     vms->snap = _new(VMSnap, 1);
+    vms->snap->cur_group = 0;
     vms->snap->codes = groups_info->groups[0].codes;
     vms->snap->run_cache = NULL;
     vms->snap->str_pos = utf8_decode(input_str, &vms->snap->last_chrcode);

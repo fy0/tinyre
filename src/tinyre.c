@@ -72,14 +72,18 @@ int main(int argc,char* argv[])
     //tre_Pattern* groups = tre_compile("(a([acd\\s123]))", 0);
     //tre_Pattern* groups = tre_compile("^(a).?([acd\\s123])", 0);
     //pattern = tre_compile("^(bb)*?a{1{,}c+?", 0);
-    pattern = tre_compile("^a$b?", 0);
+    //pattern = tre_compile("^a$b?", 0);
+    //pattern = tre_compile("(a|)+", 0); //a
+    //pattern = tre_compile("(b|)+?b", 0); //a
+    pattern = tre_compile("(a|b|c)", 0);
     if (pattern) {
-        match = tre_match(pattern, "ab");
+        match = tre_match(pattern, "c");
 
         putchar('\n');
         if (match->groups) {
             for (i = 0; i < match->groupnum; i++) {
                 printf_u8("Group %2d: ", i);
+                //printf_u8("%d %d\n", match->groups[i].head, match->groups[i].tail);
                 if (match->groups[i].head && match->groups[i].tail) {
                     debug_printstr(match->groups[i].head, match->groups[i].tail);
                 } else {
