@@ -55,6 +55,7 @@ typedef struct VMState {
     int group_num;
     tre_group* match_results;
     MatchGroup* groups;
+    int flag;
 
     VMSnap* snap;
 } VMState;

@@ -18,11 +18,12 @@ void tre_err(const char* s) {
     exit(-1);
 }
 
-tre_Pattern* tre_compile(char* s, char flag) {
+tre_Pattern* tre_compile(char* s, int flag) {
     int ret;
+    int extra_flag;
     tre_Token *tk, *tokens = NULL;
 
-    ret = tre_lexer(s, &tokens);
+    ret = tre_lexer(s, &tokens, &extra_flag);
     
     if (ret >= 0) {
 #ifdef _DEBUG
@@ -41,6 +42,7 @@ tre_Pattern* tre_compile(char* s, char flag) {
     if (tk == NULL || tk < tokens + ret) {
         printf_u8("parsering falied!!!\n");
     } else {
+        groups->flag = flag | extra_flag;
         return groups;
     }
 

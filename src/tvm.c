@@ -82,12 +82,11 @@ int do_ins_cmp(VMState* vms) {
 
 
 _INLINE static bool
-char_cmp_spe(int chrcode_re, int charcode) {
+char_cmp_spe(int chrcode_re, int charcode, int flag) {
     switch (chrcode_re) {
         case '.':
-            //if (flag & tre_pattern_dotall) return true;
-            //else 
-            if (charcode != '\n') return true;
+            if (flag & FLAG_DOTALL) return true;
+            else if (charcode != '\n') return true;
             break;
         case 'd': if (isdigit(charcode)) return true; break;
         case 'D': if (!isdigit(charcode)) return true; break;
@@ -106,7 +105,7 @@ int do_ins_cmp_spe(VMState* vms) {
 
     TRE_DEBUG_PRINT("INS_CMP_SPE\n");
 
-    if (char_cmp_spe(char_code, vms->snap->last_chrcode)) {
+    if (char_cmp_spe(char_code, vms->snap->last_chrcode, vms->flag)) {
         return 2;
     }
     return 0;
@@ -132,7 +131,7 @@ int do_ins_cmp_multi(VMState* vms, bool is_ncmp) {
                 break;
             }
         } else if (_type == TK_SPE_CHAR) {
-            if (char_cmp_spe(_code, vms->snap->last_chrcode)) {
+            if (char_cmp_spe(_code, vms->snap->last_chrcode, vms->flag)) {
                 match = true;
                 break;
             }
@@ -374,6 +373,7 @@ VMState* vm_init(tre_Pattern* groups_info, const char* input_str) {
     vms->input_str = input_str;
     vms->group_num = groups_info->num;
     vms->groups = groups_info->groups;
+    vms->flag = groups_info->flag;
 
     // init match results of groups
     vms->match_results = _new(tre_group, groups_info->num);

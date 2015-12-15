@@ -33,20 +33,21 @@ void token_char_accept(int code, const char* s_end, const char** pp, tre_Token**
         if (pt->code == '.') (pt++)->token = TK_SPE_CHAR;
         else (pt++)->token = TK_CHAR;
     }
-    
+
     *pp = p;
     *ppt = pt;
 }
 
-int tre_lexer(char* s, tre_Token** ppt) {
+int tre_lexer(char* s, tre_Token** ppt, int* p_extra_flag) {
     int i, code;
+    int extra_flag = 0;
     int len = utf8_len(s);
     int rlen = strlen(s);
     const char* s_end = s + rlen + 1;
 
     tre_Token* tokens = _new(tre_Token, len+1);
     tre_Token* pt = tokens;
-    
+
     int state = 0; // 0 NOMRAL | 1 [...] | 2 {...}
 
     for (const char* p = utf8_decode(s, &code); p != s_end; ) {

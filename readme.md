@@ -23,6 +23,7 @@ utf-8 supported.
 *    "^"      Matches the start of the string.
 *    "$"      Matches the end of the string or just before the newline at the end of the string.
 *    "|"      A|B, creates an RE that will match either A or B.
+*    Flag: DOTALL
 
 
 **Unsupported**:
@@ -36,7 +37,6 @@ utf-8 supported.
 *    (?<=...) Matches if preceded by ... (must be fixed length).
 *    (?<!...) Matches if not preceded by ... (must be fixed length).
 *    (?(id/name)yes|no) Matches yes pattern if the group with id/name matched, the (optional) no pattern otherwise.
-*    Flag: DOTALL
 *    Flag: IGNORECASE
 *    Flag: MULTILINE
 
@@ -69,4 +69,3 @@ match = tre_match(pattern, "bbbbabc");
 [更新记录](https://github.com/fy0/tinyre/wiki/%E6%9B%B4%E6%96%B0%E8%AE%B0%E5%BD%95)  
 
 License：zlib
-

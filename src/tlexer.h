@@ -14,7 +14,6 @@ typedef struct tre_Token {
     int code;
 } tre_Token;
 
-int tre_lexer(char* s, tre_Token** ppt);
-
+int tre_lexer(char* s, tre_Token** ppt, int* extra_flag);
 
 #endif

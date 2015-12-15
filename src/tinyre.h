@@ -35,7 +35,7 @@ typedef struct MatchGroup {
 typedef struct tre_Pattern {
     int num;
     MatchGroup* groups;
-    char flag;
+    int flag;
 } tre_Pattern;
 
 /* 匹配后返回的结果 */
@@ -53,7 +53,7 @@ typedef struct tre_Match {
 } tre_Match;
 
 /* 表达式编译和匹配 */
-tre_Pattern* tre_compile(char* s, char flag);
+tre_Pattern* tre_compile(char* s, int flag);
 tre_Match* tre_match(tre_Pattern* tp, const char* str);
 
 /* 释放内存占用 */
