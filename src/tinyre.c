@@ -77,9 +77,11 @@ int main(int argc,char* argv[])
     //pattern = tre_compile("^a$b?", 0);
     //pattern = tre_compile("(a|)+", 0); //a
     //pattern = tre_compile("(b|)+?b", 0); //a
-    pattern = tre_compile("(a|b|c)", 0);
+    //pattern = tre_compile("(a|b|c)", 0); //c
+    //pattern = tre_compile("c.", FLAG_DOTALL); // ca c\\n
+    pattern = tre_compile("C.", FLAG_IGNORECASE);
     if (pattern) {
-        match = tre_match(pattern, "c");
+        match = tre_match(pattern, "ca");
 
         putchar('\n');
         if (match->groups) {

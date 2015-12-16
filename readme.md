@@ -24,6 +24,7 @@ utf-8 supported.
 *    "$"      Matches the end of the string or just before the newline at the end of the string.
 *    "|"      A|B, creates an RE that will match either A or B.
 *    Flag: DOTALL
+*    Flag: IGNORECASE
 
 
 **Unsupported**:
@@ -37,7 +38,6 @@ utf-8 supported.
 *    (?<=...) Matches if preceded by ... (must be fixed length).
 *    (?<!...) Matches if not preceded by ... (must be fixed length).
 *    (?(id/name)yes|no) Matches yes pattern if the group with id/name matched, the (optional) no pattern otherwise.
-*    Flag: IGNORECASE
 *    Flag: MULTILINE
 
 

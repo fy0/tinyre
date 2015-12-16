@@ -73,9 +73,13 @@ int do_ins_cmp(VMState* vms) {
     putcode(char_code);
     putchar('\n');
 #endif
-
-    if (char_code == vms->snap->last_chrcode) {
-        return 2;
+    if (vms->flag & FLAG_IGNORECASE) {
+        if (tolower(char_code) == tolower(vms->snap->last_chrcode))
+            return 2;
+    } else {
+        if (char_code == vms->snap->last_chrcode) {
+            return 2;
+        }
     }
     return 0;
 }
