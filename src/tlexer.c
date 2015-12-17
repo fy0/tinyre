@@ -48,7 +48,7 @@ int tre_lexer(char* s, tre_Token** ppt, int* p_extra_flag) {
     tre_Token* tokens = _new(tre_Token, len+1);
     tre_Token* pt = tokens;
 
-    int state = 0; // 0 NOMRAL | 1 [...] | 2 {...}
+    int state = 0; // 0 NOMRAL | 1 [...] | 2 {...} | 3 (?...)
 
     for (const char* p = utf8_decode(s, &code); p != s_end; ) {
         if (state == 0) {
@@ -56,8 +56,9 @@ int tre_lexer(char* s, tre_Token** ppt, int* p_extra_flag) {
                 pt->code = 0;
                 (pt++)->token = code;
 
-                if ((pt-1)->token == '[') state = 1;
-                else if ((pt-1)->token == '{') state = 2;
+                if ((pt - 1)->token == '[') state = 1;
+                else if ((pt - 1)->token == '{') state = 2;
+                else if ((pt - 1)->token == '(') state = 3;
             } else {
                 token_char_accept(code, s_end, &p, &pt);
             }
@@ -137,6 +138,23 @@ int tre_lexer(char* s, tre_Token** ppt, int* p_extra_flag) {
 
         __end:
             state = 0;
+        } else if (state == 3) {
+            state = 0;
+            p = utf8_decode(p, &code);
+            if (code == '#') {
+                bool is_escape = false;
+
+                while (!(!is_escape && code == ')')) {
+                    p = utf8_decode(p, &code);
+                    if (is_escape) is_escape = false;
+                    if (code == '\\') is_escape = true;
+                    if (code == '\0') return ERR_LEXER_UNBALANCED_PARENTHESIS;
+                }
+                pt--;
+                pt->token = 0;
+            } else {
+                continue;
+            }
         }
 
         p = utf8_decode(p, &code);

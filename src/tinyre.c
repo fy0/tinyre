@@ -32,6 +32,9 @@ tre_Pattern* tre_compile(char* s, int flag) {
     } else if (ret == -1) {
         printf_u8("input error: characters inside {...} invalid.\n");
         exit(-1);
+    } else if (ret == ERR_LEXER_UNBALANCED_PARENTHESIS) {
+        printf_u8("input error: unbalanced parenthesis\n");
+        exit(-1);
     }
 
     tk = tokens;
@@ -79,7 +82,8 @@ int main(int argc,char* argv[])
     //pattern = tre_compile("(b|)+?b", 0); //a
     //pattern = tre_compile("(a|b|c)", 0); //c
     //pattern = tre_compile("c.", FLAG_DOTALL); // ca c\\n
-    pattern = tre_compile("C.", FLAG_IGNORECASE);
+    //pattern = tre_compile("(?#123C."); // error: unbalanced parenthesis
+    pattern = tre_compile("(?#123)C.", FLAG_NONE);
     if (pattern) {
         match = tre_match(pattern, "ca");
 
@@ -87,7 +91,7 @@ int main(int argc,char* argv[])
         if (match->groups) {
             for (i = 0; i < match->groupnum; i++) {
                 printf_u8("Group %2d: ", i);
-                //printf_u8("%d %d\n", match->groups[i].head, match->groups[i].tail);
+                printf_u8("%d %d\n", match->groups[i].head, match->groups[i].tail);
                 if (match->groups[i].head && match->groups[i].tail) {
                     debug_printstr(match->groups[i].head, match->groups[i].tail);
                 } else {

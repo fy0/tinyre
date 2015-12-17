@@ -8,6 +8,7 @@
 #define TINYRE_H
 
 enum tre_Flag {
+    FLAG_NONE = 0,
     //FLAG_TEMPLATE = 1,
     FLAG_IGNORECASE = 2,
     //FLAG_LOCALE = 4,

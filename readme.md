@@ -23,6 +23,7 @@ utf-8 supported.
 *    "^"      Matches the start of the string.
 *    "$"      Matches the end of the string or just before the newline at the end of the string.
 *    "|"      A|B, creates an RE that will match either A or B.
+*    (?#...)  A comment; ignored.
 *    Flag: DOTALL
 *    Flag: IGNORECASE
 
@@ -32,7 +33,6 @@ utf-8 supported.
 *    (?:...)  Non-grouping version of regular parentheses.
 *    (?P<name>...) The substring matched by the group is accessible by name.
 *    (?P=name)     Matches the text matched earlier by the group named name.
-*    (?#...)  A comment; ignored.
 *    (?=...)  Matches if ... matches next, but doesn't consume the string.
 *    (?!...)  Matches if ... doesn't match next.
 *    (?<=...) Matches if preceded by ... (must be fixed length).

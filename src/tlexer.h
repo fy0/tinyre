@@ -16,4 +16,6 @@ typedef struct tre_Token {
 
 int tre_lexer(char* s, tre_Token** ppt, int* extra_flag);
 
+#define ERR_LEXER_UNBALANCED_PARENTHESIS  -3
+
 #endif
