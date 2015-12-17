@@ -10,4 +10,3 @@ int utf8_len(const char *s);
 char* ucs4_to_utf8(int code);
 
 #endif
-

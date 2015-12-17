@@ -38,6 +38,7 @@ const char *utf8_decode(const char *o, int *val) {
     return (const char *)s + 1;  /* +1 to include first byte */
 }
 
+
 int utf8_len(const char *s) {
     int code;
     int len = 0, rlen = strlen(s);

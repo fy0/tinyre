@@ -38,6 +38,14 @@ void token_char_accept(int code, const char* s_end, const char** pp, tre_Token**
     *ppt = pt;
 }
 
+_INLINE static
+int char_to_flag(int code) {
+    if (code == 'i') return FLAG_IGNORECASE;
+    else if (code == 'm') return FLAG_MULTILINE;
+    else if (code == 's') return FLAG_DOTALL;
+    return 0;
+}
+
 int tre_lexer(char* s, tre_Token** ppt, int* p_extra_flag) {
     int i, code;
     int extra_flag = 0;
@@ -152,8 +160,21 @@ int tre_lexer(char* s, tre_Token** ppt, int* p_extra_flag) {
                 }
                 pt--;
                 pt->token = 0;
+            } else if (char_to_flag(code)) {
+                int flag = 0;
+                while (true) {
+                    flag = char_to_flag(code);
+                    if (flag) extra_flag |= flag;
+                    else break;
+                    p = utf8_decode(p, &code);
+                }
+                if (code != ')') {
+                    return ERR_LEXER_UNEXPECTED_END_OF_PATTERN;
+                }
+                pt--;
+                pt->token = 0;
             } else {
-                continue;
+                return ERR_LEXER_UNEXPECTED_END_OF_PATTERN;
             }
         }
 
@@ -162,6 +183,7 @@ int tre_lexer(char* s, tre_Token** ppt, int* p_extra_flag) {
 
     pt->code = 0;
     pt->token = 0; // END OF TOKENS
+    *p_extra_flag = extra_flag;
     *ppt = tokens;
     return pt - tokens;
 }

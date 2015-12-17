@@ -24,12 +24,12 @@ utf-8 supported.
 *    "$"      Matches the end of the string or just before the newline at the end of the string.
 *    "|"      A|B, creates an RE that will match either A or B.
 *    (?#...)  A comment; ignored.
+*    (?ims) Set the I, M or S flag for the RE (see below).
 *    Flag: DOTALL
 *    Flag: IGNORECASE
 
 
 **Unsupported**:
-*    (?ims) Set the I, M or S flag for the RE (see below).
 *    (?:...)  Non-grouping version of regular parentheses.
 *    (?P<name>...) The substring matched by the group is accessible by name.
 *    (?P=name)     Matches the text matched earlier by the group named name.
