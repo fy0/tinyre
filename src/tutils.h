@@ -28,7 +28,8 @@ static void putcode(int code) {
         putchar((char)code);
     } else {
         char* ret = ucs4_to_utf8(code);
-        printf_u8(ret);
+        // bug: printf_u8(ret);
+        printf_u8("%s", ret);
         free(ret);
     }
 }

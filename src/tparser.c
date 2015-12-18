@@ -10,6 +10,7 @@
 
 ParserMatchGroup* m_start = NULL;
 ParserMatchGroup* m_cur = NULL;
+tre_TokenGroupName* tk_group_names;
 
 tre_Token* parser_char_set(tre_Token* tk);
 tre_Token* parser_char(tre_Token* tk);
@@ -214,12 +215,14 @@ tre_Token* parser_block(tre_Token* tk) {
 
 tre_Token* parser_group(tre_Token* tk) {
     int gindex = 1;
+    char* name = NULL;
     tre_Token* ret;
     ParserMatchGroup* last_group;
 
     TRE_DEBUG_PRINT("GROUP\n");
 
-    paser_accept((tk++)->token == '(');
+    paser_accept(tk->token == '(');
+    if (tk_group_names && tk_group_names->tk == tk++) name = tk_group_names->name;
     check_token(tk);
 
     last_group = m_cur;
@@ -236,6 +239,8 @@ tre_Token* parser_group(tre_Token* tk) {
     m_cur->next = NULL;
     m_cur->or_num = 0;
     m_cur->or_list = NULL;
+    m_cur->name = name;
+    tk_group_names = tk_group_names->next;
 
     ret = tk;
     while ((ret = parser_block(ret))) tk = ret;
@@ -265,9 +270,11 @@ tre_Token* parser_blocks(tre_Token* tk) {
     return tk;
 }
 
-tre_Pattern* tre_parser(tre_Token* tk, tre_Token** last_token) {
+tre_Pattern* tre_parser(tre_Token* tk, tre_TokenGroupName* _tk_group_names, tre_Token** last_token) {
     tre_Token* tokens;
     tre_Pattern* ret;
+
+    tk_group_names = _tk_group_names;
 
     m_cur = m_start = _new(ParserMatchGroup, 1);
     m_start->codes = m_start->codes_start = _new(INS_List, 1);
@@ -275,6 +282,7 @@ tre_Pattern* tre_parser(tre_Token* tk, tre_Token** last_token) {
     m_cur->next = NULL;
     m_cur->or_num = 0;
     m_cur->or_list = NULL;
+    m_cur->name = NULL;
 
     tokens = parser_blocks(tk);
     *last_token = tokens;
@@ -315,7 +323,7 @@ tre_Pattern* compact_group(ParserMatchGroup* parser_groups) {
 
         // sizeof(int)*2 is space for group_end
         g->codes = malloc(code_lens + sizeof(int) * 2);
-        g->name = NULL;
+        g->name = pg->name;
 
         if (pg->or_num) {
             code_lens = pg->or_num * 2 * sizeof(int); // recount
@@ -365,7 +373,7 @@ tre_Pattern* compact_group(ParserMatchGroup* parser_groups) {
     ret->num = gnum;
 
     // TODO: why crash? i need valgrind.
-     //free(parser_groups);
+    //free(parser_groups);
 
     return ret;
 }

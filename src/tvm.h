@@ -37,23 +37,30 @@ typedef struct RunCache {
 } RunCache;
 
 
+typedef struct GroupResultTemp {
+    int* head;
+    int* tail;
+    int* tmp;
+} GroupResultTemp;
+
+
 // Ö´ÐÐ×´Ì¬
 
 typedef struct VMSnap {
-    int cur_group;
-    int last_chrcode;
-    const char* last_pos;
-    const char* str_pos;
-    RunCache* run_cache;
     int* codes;
+    int* str_pos;
+    int chrcode;
+    int cur_group;
     MatchRepeat mr;
+    RunCache* run_cache;
     struct VMSnap* prev;
 } VMSnap;
 
 typedef struct VMState {
-    const char* input_str;
+    const char* raw_input_str;
+    int* input_str;
     int group_num;
-    tre_group* match_results;
+    GroupResultTemp* match_results;
     MatchGroup* groups;
     int flag;
 
@@ -63,6 +70,7 @@ typedef struct VMState {
 VMState* vm_init(tre_Pattern* groups, const char* input_str);
 
 int vm_step(VMState* vms);
-tre_group* vm_exec(VMState* vms);
+void vm_free(VMState* vms);
+tre_GroupResult* vm_exec(VMState* vms);
 
 #endif

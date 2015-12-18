@@ -14,9 +14,17 @@ typedef struct tre_Token {
     int code;
 } tre_Token;
 
-int tre_lexer(char* s, tre_Token** ppt, int* extra_flag);
+typedef struct tre_TokenGroupName {
+    tre_Token* tk;
+    char* name;
+    struct tre_TokenGroupName *next;
+} tre_TokenGroupName;
+
+int tre_lexer(char* s, tre_Token** ppt, int* p_extra_flag, tre_TokenGroupName** p_group_names);
 
 #define ERR_LEXER_UNBALANCED_PARENTHESIS        -3
 #define ERR_LEXER_UNEXPECTED_END_OF_PATTERN     -4
+#define ERR_LEXER_UNKNOW_SPECIFIER              -5
+#define ERR_LEXER_BAD_GROUP_NAME                -6
 
 #endif

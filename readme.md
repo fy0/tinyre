@@ -25,13 +25,13 @@ utf-8 supported.
 *    "|"      A|B, creates an RE that will match either A or B.
 *    (?#...)  A comment; ignored.
 *    (?ims) Set the I, M or S flag for the RE (see below).
+*    (?P<name>...) The substring matched by the group is accessible by name.
 *    Flag: DOTALL
 *    Flag: IGNORECASE
 
 
 **Unsupported**:
 *    (?:...)  Non-grouping version of regular parentheses.
-*    (?P<name>...) The substring matched by the group is accessible by name.
 *    (?P=name)     Matches the text matched earlier by the group named name.
 *    (?=...)  Matches if ... matches next, but doesn't consume the string.
 *    (?!...)  Matches if ... doesn't match next.

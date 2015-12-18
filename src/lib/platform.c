@@ -33,7 +33,7 @@ void printf_u8(const char *fmt, ...) {
     va_end(args);
 
     char *buf = malloc(sizeof(char) * (size+1));
-    
+
     va_start(args, fmt);
     vsprintf(buf, fmt, args);
     va_end(args);

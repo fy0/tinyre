@@ -71,14 +71,11 @@ void debug_ins_list_print(ParserMatchGroup* groups) {
     }
 }
 
-void debug_printstr(const char* head, const char* tail) {
-    int code;
-    const char *p = head;
-
+void debug_printstr(int* head, int* tail) {
+    int *p = head;
     if (tail <= head) return;
 
     while (p != tail) {
-        p = utf8_decode(p, &code);
-        putcode(code);
+        putcode(*p++);
     }
 }

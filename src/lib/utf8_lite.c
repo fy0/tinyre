@@ -74,7 +74,7 @@ char* ucs4_to_utf8(int code) {
     if (i == ilen) return NULL;    // 无效的UCS4编码
 
     ilen = i + 1;   // UTF-8编码字节数
-    char* pbUTF8 = malloc(sizeof(char) * ilen);
+    char* pbUTF8 = malloc(sizeof(char) * (ilen+1));
 
     if (pbUTF8 != NULL) {   // 转换为UTF-8编码
         for( ; i > 0; i-- ) {
@@ -84,6 +84,11 @@ char* ucs4_to_utf8(int code) {
 
         pbUTF8[0] = (char)(code | abPrefix[ilen - 1]);
     }
- 
+
+    /*for (i = 0; i < ilen; i++) {
+        printf("%2x ", pbUTF8[i]);
+    }*/
+    pbUTF8[ilen] = 0;
+    
     return pbUTF8;
 }

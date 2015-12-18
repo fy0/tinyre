@@ -30,6 +30,7 @@ enum tre_Flag {
 /* compiled groups */
 typedef struct MatchGroup {
     char* name;
+    int type;
     int* codes;
 } MatchGroup;
 
@@ -41,16 +42,16 @@ typedef struct tre_Pattern {
 
 /* 匹配后返回的结果 */
 
-typedef struct tre_group {
-    const char* name;
-    const char* head;
-    const char* tail;
-    const char* tmp;
-} tre_group;
+typedef struct tre_GroupResult {
+    char* name;
+    int* head;
+    int* tail;
+} tre_GroupResult;
+
 
 typedef struct tre_Match {
     int groupnum;
-    tre_group* groups;
+    tre_GroupResult* groups;
 } tre_Match;
 
 /* 表达式编译和匹配 */

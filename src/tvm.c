@@ -7,17 +7,10 @@ _INLINE static
 VMSnap* snap_dup(VMSnap* src) {
     VMSnap* snap = _new(VMSnap, 1);
     RunCache *rc, *rc_src;
-
-    snap->codes = src->codes;
-    snap->last_chrcode = src->last_chrcode;
-    snap->last_pos = src->last_pos;
-    snap->str_pos = src->str_pos;
-    snap->mr = src->mr;
-    snap->cur_group = src->cur_group;
-    snap->prev = src->prev;
+    memcpy(snap, src, sizeof(VMSnap));
 
     if (src->run_cache) {
-        rc = snap->run_cache = _new(RunCache, 1);
+        snap->run_cache = rc = _new(RunCache, 1);
         for (rc_src = src->run_cache; rc_src; rc_src = rc_src->prev) {
             rc->codes_cache = rc_src->codes_cache;
             rc->mr = rc_src->mr;
@@ -44,8 +37,8 @@ void snap_free(VMSnap* snap) {
 }
 
 void vm_input_next(VMState* vms) {
-    vms->snap->last_pos = vms->snap->str_pos;
-    vms->snap->str_pos = utf8_decode(vms->snap->str_pos, &vms->snap->last_chrcode);
+    vms->snap->str_pos++;
+    vms->snap->chrcode = *vms->snap->str_pos;
 }
 
 _INLINE static
@@ -64,6 +57,15 @@ int jump_one_cmp(VMState* vms) {
     return 1;
 }
 
+_INLINE static bool
+char_cmp(int chrcode_re, int chrcode, int flag) {
+    if (flag & FLAG_IGNORECASE) {
+        return (tolower(chrcode_re) == tolower(chrcode));
+    } else {
+        return (chrcode_re == chrcode);
+    }
+}
+
 _INLINE static
 int do_ins_cmp(VMState* vms) {
     int char_code = *(vms->snap->codes + 1);
@@ -73,32 +75,25 @@ int do_ins_cmp(VMState* vms) {
     putcode(char_code);
     putchar('\n');
 #endif
-    if (vms->flag & FLAG_IGNORECASE) {
-        if (tolower(char_code) == tolower(vms->snap->last_chrcode))
-            return 2;
-    } else {
-        if (char_code == vms->snap->last_chrcode) {
-            return 2;
-        }
-    }
+    if (char_cmp(char_code, vms->snap->chrcode, vms->flag))
+        return 2;
     return 0;
 }
 
-
 _INLINE static bool
-char_cmp_spe(int chrcode_re, int charcode, int flag) {
+char_cmp_spe(int chrcode_re, int chrcode, int flag) {
     switch (chrcode_re) {
         case '.':
             if (flag & FLAG_DOTALL) return true;
-            else if (charcode != '\n') return true;
+            else if (chrcode != '\n') return true;
             break;
-        case 'd': if (isdigit(charcode)) return true; break;
-        case 'D': if (!isdigit(charcode)) return true; break;
-        case 'w': if (isalnum(charcode) || charcode == '_') return true; break;
-        case 'W': if (!isalnum(charcode) || charcode != '_') return true; break;
-        case 's': if (isspace(charcode)) return true; break;
-        case 'S': if (!(isspace(charcode))) return true; break;
-        default: if (chrcode_re == charcode) return true;
+        case 'd': if (isdigit(chrcode)) return true; break;
+        case 'D': if (!isdigit(chrcode)) return true; break;
+        case 'w': if (isalnum(chrcode) || chrcode == '_') return true; break;
+        case 'W': if (!isalnum(chrcode) || chrcode != '_') return true; break;
+        case 's': if (isspace(chrcode)) return true; break;
+        case 'S': if (!(isspace(chrcode))) return true; break;
+        default: if (chrcode_re == chrcode) return true;
     }
     return false;
 }
@@ -109,7 +104,7 @@ int do_ins_cmp_spe(VMState* vms) {
 
     TRE_DEBUG_PRINT("INS_CMP_SPE\n");
 
-    if (char_cmp_spe(char_code, vms->snap->last_chrcode, vms->flag)) {
+    if (char_cmp_spe(char_code, vms->snap->chrcode, vms->flag)) {
         return 2;
     }
     return 0;
@@ -130,12 +125,12 @@ int do_ins_cmp_multi(VMState* vms, bool is_ncmp) {
         _code = *((int*)data + i * 2 + 1);
 
         if (_type == TK_CHAR) {
-            if (_code == vms->snap->last_chrcode) {
+            if (char_cmp(_code, vms->snap->chrcode, vms->flag)) {
                 match = true;
                 break;
             }
         } else if (_type == TK_SPE_CHAR) {
-            if (char_cmp_spe(_code, vms->snap->last_chrcode, vms->flag)) {
+            if (char_cmp_spe(_code, vms->snap->chrcode, vms->flag)) {
                 match = true;
                 break;
             }
@@ -171,7 +166,7 @@ int do_ins_cmp_group(VMState* vms) {
     vms->snap->cur_group = index;
 
     // set match result, value of head
-    vms->match_results[index].tmp = vms->snap->last_pos;
+    vms->match_results[index].tmp = vms->snap->str_pos;
 
     return 1;
 }
@@ -196,7 +191,7 @@ int do_ins_group_end(VMState* vms) {
 
     // set match result
     vms->match_results[index].head = vms->match_results[index].tmp;
-    vms->match_results[index].tail = vms->snap->last_pos;
+    vms->match_results[index].tail = vms->snap->str_pos;
 
     // end if GROUP(0) matched
     // 2 is length of CMP_GROUP
@@ -353,7 +348,7 @@ int vm_step(VMState* vms) {
         ret = do_ins_save_snap(vms);
     } else if (cur_ins == ins_match_start) {
         // ^
-        if (vms->snap->last_pos != vms->input_str) {
+        if (vms->snap->str_pos != vms->input_str) {
             ret = try_backtracking(vms);
         } else {
             vms->snap->codes += 1;
@@ -361,7 +356,7 @@ int vm_step(VMState* vms) {
         }
     } else if (cur_ins == ins_match_end) {
         // $
-        if (vms->snap->last_chrcode != 0) {
+        if (vms->snap->chrcode != 0) {
             ret = try_backtracking(vms);
         } else {
             vms->snap->codes += 1;
@@ -372,39 +367,74 @@ int vm_step(VMState* vms) {
     return ret;
 }
 
+int* u8str_to_u32str(const char* p) {
+    int *ret, *p2;
+    int i, code, slen = utf8_len(p);
+
+    ret = p2 = _new(int, slen + 1);
+
+    for (i = 0; i < slen; i++) {
+        p = utf8_decode(p, &code);
+        *p2++ = code;
+    }
+
+    *p2 = 0;
+    return ret;
+}
+
 VMState* vm_init(tre_Pattern* groups_info, const char* input_str) {
     VMState* vms = _new(VMState, 1);
-    vms->input_str = input_str;
+    vms->raw_input_str = input_str;
+    vms->input_str = u8str_to_u32str(input_str);
+
     vms->group_num = groups_info->num;
     vms->groups = groups_info->groups;
     vms->flag = groups_info->flag;
 
     // init match results of groups
-    vms->match_results = _new(tre_group, groups_info->num);
-    memset(vms->match_results, 0, sizeof(tre_group) * groups_info->num);
-    vms->match_results[0].tmp = input_str;
+    vms->match_results = _new(GroupResultTemp, groups_info->num);
+    memset(vms->match_results, 0, sizeof(GroupResultTemp) * groups_info->num);
+    vms->match_results[0].tmp = vms->input_str;
 
     // init first snap
     vms->snap = _new(VMSnap, 1);
-    vms->snap->cur_group = 0;
     vms->snap->codes = groups_info->groups[0].codes;
-    vms->snap->run_cache = NULL;
-    vms->snap->str_pos = utf8_decode(input_str, &vms->snap->last_chrcode);
-    vms->snap->last_pos = input_str;
+    vms->snap->str_pos = vms->input_str;
+    vms->snap->chrcode = *vms->input_str;
+    vms->snap->cur_group = 0;
     memset(&vms->snap->mr, 0, sizeof(MatchRepeat));
+    vms->snap->run_cache = NULL;
     vms->snap->prev = NULL;
     return vms;
 }
 
-tre_group* vm_exec(VMState* vms) {
+tre_GroupResult* vm_exec(VMState* vms) {
+    int i;
     int ret = 1;
+    tre_GroupResult* results;
+
     while (ret > 0) {
         ret = vm_step(vms);
     }
 
     if (ret == -1) {
-        return vms->match_results;
+        results = _new(tre_GroupResult, vms->group_num);
+        memset(results, 0, sizeof(tre_GroupResult) * vms->group_num);
+        for (i = 0; i < vms->group_num; i++) {
+            if (vms->match_results[i].head && vms->match_results[i].tail) {
+                results[i].head = vms->match_results[i].head;
+                results[i].tail = vms->match_results[i].tail;
+                results[i].name = vms->groups[i].name;
+            }
+        }
+        return results;
     }
 
     return NULL;
+}
+
+void vm_free(VMState* vms)
+{
+    free(vms->match_results);
+    free(vms);
 }

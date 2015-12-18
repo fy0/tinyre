@@ -3,6 +3,7 @@
 #define TINYRE_PARSER_H
 
 #include "tinyre.h"
+#include "tlexer.h"
 
 typedef struct INS_List {
     int len;
@@ -26,6 +27,6 @@ typedef struct ParserMatchGroup {
 } ParserMatchGroup;
 
 tre_Pattern* compact_group(ParserMatchGroup* parser_groups);
-tre_Pattern* tre_parser(tre_Token* tk, tre_Token** last_token);
+tre_Pattern* tre_parser(tre_Token* tk, tre_TokenGroupName* tk_group_names, tre_Token** last_token);
 
 #endif
