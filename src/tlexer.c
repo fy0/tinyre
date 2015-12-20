@@ -162,6 +162,8 @@ int tre_lexer(char* s, tre_Token** ppt, int* p_extra_flag, tre_TokenGroupName** 
                 }
                 pt--;
                 pt->token = 0;
+            } else if (code == ':') {
+                (pt - 1)->code = GT_NONGROUPING;
             } else if (code == 'P') {
                 p = utf8_decode(p, &code);
                 // group name

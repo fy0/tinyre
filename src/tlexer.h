@@ -9,6 +9,13 @@ enum TOKEN_LIST {
     TK_SPE_CHAR,
 };
 
+enum GROUP_TYPE {
+    GT_NORMAL = 0,
+    GT_NONGROUPING = 1,
+    GT_IF_MATCH,
+    GT_IF_NOT_MATCH,
+};
+
 typedef struct tre_Token {
     int token;
     int code;

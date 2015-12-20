@@ -222,7 +222,9 @@ tre_Token* parser_group(tre_Token* tk) {
     TRE_DEBUG_PRINT("GROUP\n");
 
     paser_accept(tk->token == '(');
-    if (tk_group_names && tk_group_names->tk == tk++) name = tk_group_names->name;
+    if (tk_group_names && tk_group_names->tk == tk)
+        name = tk_group_names->name;
+    tk++;
     check_token(tk);
 
     last_group = m_cur;
@@ -232,6 +234,7 @@ tre_Token* parser_group(tre_Token* tk) {
         m_cur = m_cur->next;
         gindex++;
     }
+
     // 创建新节点
     m_cur->next = _new(ParserMatchGroup, 1);
     m_cur->next->codes = m_cur->next->codes_start = _new(INS_List, 1);
@@ -240,7 +243,9 @@ tre_Token* parser_group(tre_Token* tk) {
     m_cur->or_num = 0;
     m_cur->or_list = NULL;
     m_cur->name = name;
-    tk_group_names = tk_group_names->next;
+    
+    if (tk_group_names) 
+        tk_group_names = tk_group_names->next;
 
     ret = tk;
     while ((ret = parser_block(ret))) tk = ret;
