@@ -35,7 +35,8 @@ typedef struct MatchGroup {
 } MatchGroup;
 
 typedef struct tre_Pattern {
-    int num;
+    int num; // group num
+    int num_all; // group num include non-grouping parentheses (?:) (?=) ..
     MatchGroup* groups;
     int flag;
 } tre_Pattern;

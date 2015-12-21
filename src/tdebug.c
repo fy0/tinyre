@@ -30,7 +30,7 @@ void debug_ins_list_print(ParserMatchGroup* groups) {
 
     for (ParserMatchGroup *g = groups; g; g = g->next) {
         if (gnum == 0) printf_u8("\nInstructions : Group 0\n");
-        else printf_u8("\nInstructions : Group %d\n", gnum);
+        else printf_u8("\nInstructions : Group %d (%d)\n", gnum, g->group_type);
         gnum++;
 
         for (INS_List* code = g->codes_start; code->next; code = code->next) {

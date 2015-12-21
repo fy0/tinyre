@@ -10,7 +10,9 @@
 
 ParserMatchGroup* m_start = NULL;
 ParserMatchGroup* m_cur = NULL;
-tre_TokenGroupName* tk_group_names;
+
+TokenInfo* tk_info;
+TokenGroupName* tk_group_names;
 
 tre_Token* parser_char_set(tre_Token* tk);
 tre_Token* parser_char(tre_Token* tk);
@@ -214,7 +216,8 @@ tre_Token* parser_block(tre_Token* tk) {
 }
 
 tre_Token* parser_group(tre_Token* tk) {
-    int gindex = 1;
+    int gindex;
+    int group_type;
     char* name = NULL;
     tre_Token* ret;
     ParserMatchGroup* last_group;
@@ -224,6 +227,11 @@ tre_Token* parser_group(tre_Token* tk) {
     paser_accept(tk->token == '(');
     if (tk_group_names && tk_group_names->tk == tk)
         name = tk_group_names->name;
+
+    group_type = tk->code;
+    if (group_type == GT_NORMAL) gindex = 1;
+    else gindex = tk_info->max_normal_group_num;
+
     tk++;
     check_token(tk);
 
@@ -232,7 +240,8 @@ tre_Token* parser_group(tre_Token* tk) {
     m_cur = m_start;
     while (m_cur->next) {
         m_cur = m_cur->next;
-        gindex++;
+        if (group_type == GT_NORMAL && m_cur->group_type == GT_NORMAL) gindex++;
+        if (group_type != GT_NORMAL && m_cur->group_type != GT_NORMAL) gindex++;
     }
 
     // 创建新节点
@@ -243,7 +252,8 @@ tre_Token* parser_group(tre_Token* tk) {
     m_cur->or_num = 0;
     m_cur->or_list = NULL;
     m_cur->name = name;
-    
+    m_cur->group_type = group_type;
+
     if (tk_group_names) 
         tk_group_names = tk_group_names->next;
 
@@ -275,30 +285,65 @@ tre_Token* parser_blocks(tre_Token* tk) {
     return tk;
 }
 
-tre_Pattern* tre_parser(tre_Token* tk, tre_TokenGroupName* _tk_group_names, tre_Token** last_token) {
+/** return length of groups */
+static _INLINE
+int group_sort(ParserMatchGroup* parser_groups) {
+    int gnum = 0;
+    ParserMatchGroup *pg, *pg_last = NULL, *pg_tmp;
+    ParserMatchGroup *new_tail = NULL, *new_tail_cur = NULL;
+
+    for (pg = parser_groups; pg;) {
+        if (pg->group_type > GT_NORMAL) {
+            if (pg_last) pg_last->next = pg->next;
+
+            if (!new_tail_cur) new_tail = new_tail_cur = pg;
+            else {
+                new_tail_cur->next = pg;
+                new_tail_cur = new_tail_cur->next;
+            }
+            pg_tmp = pg->next;
+            pg->next = NULL;
+            pg = pg_tmp;
+        } else {
+            pg_last = pg;
+            pg = pg->next;
+        }
+    }
+
+    for (pg = parser_groups; pg->next; pg = pg->next);
+    pg->next = new_tail;
+    return gnum;
+}
+
+tre_Pattern* tre_parser(TokenInfo* tki, tre_Token** last_token) {
     tre_Token* tokens;
     tre_Pattern* ret;
 
-    tk_group_names = _tk_group_names;
+    tk_info = tki;
+    tk_group_names = tki->group_names;
 
     m_cur = m_start = _new(ParserMatchGroup, 1);
     m_start->codes = m_start->codes_start = _new(INS_List, 1);
     m_start->codes->next = NULL;
+    m_start->group_type = 0;
     m_cur->next = NULL;
     m_cur->or_num = 0;
     m_cur->or_list = NULL;
     m_cur->name = NULL;
 
-    tokens = parser_blocks(tk);
+    tokens = parser_blocks(tki->tokens);
     *last_token = tokens;
 
     if (tokens) {
+        group_sort(m_start);
 #ifdef _DEBUG
         debug_ins_list_print(m_start);
 #endif
         ret = compact_group(m_start);
+        ret->num = tki->max_normal_group_num;
         return ret;
     }
+
     return NULL;
 }
 
@@ -329,6 +374,7 @@ tre_Pattern* compact_group(ParserMatchGroup* parser_groups) {
         // sizeof(int)*2 is space for group_end
         g->codes = malloc(code_lens + sizeof(int) * 2);
         g->name = pg->name;
+        g->type = pg->group_type;
 
         if (pg->or_num) {
             code_lens = pg->or_num * 2 * sizeof(int); // recount
@@ -375,7 +421,7 @@ tre_Pattern* compact_group(ParserMatchGroup* parser_groups) {
     }
 
     ret->groups = groups;
-    ret->num = gnum;
+    ret->num_all = gnum;
 
     // TODO: why crash? i need valgrind.
     //free(parser_groups);

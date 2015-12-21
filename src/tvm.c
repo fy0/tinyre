@@ -166,7 +166,9 @@ int do_ins_cmp_group(VMState* vms) {
     vms->snap->cur_group = index;
 
     // set match result, value of head
-    vms->match_results[index].tmp = vms->snap->str_pos;
+    if (index < vms->group_num) {
+        vms->match_results[index].tmp = vms->snap->str_pos;
+    }
 
     return 1;
 }
@@ -190,8 +192,10 @@ int do_ins_group_end(VMState* vms) {
     }
 
     // set match result
-    vms->match_results[index].head = vms->match_results[index].tmp;
-    vms->match_results[index].tail = vms->snap->str_pos;
+    if (index < vms->group_num) {
+        vms->match_results[index].head = vms->match_results[index].tmp;
+        vms->match_results[index].tail = vms->snap->str_pos;
+    }
 
     // end if GROUP(0) matched
     // 2 is length of CMP_GROUP

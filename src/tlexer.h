@@ -21,13 +21,21 @@ typedef struct tre_Token {
     int code;
 } tre_Token;
 
-typedef struct tre_TokenGroupName {
+typedef struct TokenGroupName {
     tre_Token* tk;
     char* name;
-    struct tre_TokenGroupName *next;
-} tre_TokenGroupName;
+    struct TokenGroupName *next;
+} TokenGroupName;
 
-int tre_lexer(char* s, tre_Token** ppt, int* p_extra_flag, tre_TokenGroupName** p_group_names);
+typedef struct TokenInfo {
+    tre_Token* tokens;
+    int extra_flag;
+    int max_normal_group_num;
+    TokenGroupName* group_names;
+} TokenInfo;
+
+int tre_lexer(char* s, TokenInfo** ptki);
+void token_info_free(TokenInfo* tki);
 
 #define ERR_LEXER_UNBALANCED_PARENTHESIS        -3
 #define ERR_LEXER_UNEXPECTED_END_OF_PATTERN     -4

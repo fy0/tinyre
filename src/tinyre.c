@@ -20,15 +20,15 @@ void tre_err(const char* s) {
 
 tre_Pattern* tre_compile(char* s, int flag) {
     int ret;
-    int extra_flag;
-    tre_Token *tk, *tokens = NULL;
-    tre_TokenGroupName* group_names;
+    tre_Token *last_token;
+    //TokenGroupName* group_names;
+    TokenInfo* tki;
 
-    ret = tre_lexer(s, &tokens, &extra_flag, &group_names);
+    ret = tre_lexer(s, &tki);
 
     if (ret >= 0) {
 #ifdef _DEBUG
-        debug_token_print(tokens, ret);
+        debug_token_print(tki->tokens, ret);
 #endif
     } else if (ret == -1) {
         printf_u8("input error: characters inside {...} invalid.\n");
@@ -47,16 +47,14 @@ tre_Pattern* tre_compile(char* s, int flag) {
         exit(-1);
     }
 
-    tk = tokens;
+    tre_Pattern* groups = tre_parser(tki, &last_token);
 
-    tre_Pattern* groups = tre_parser(tokens, group_names, &tk);
-    free(tokens);
-    free(group_names);
-
-    if (tk == NULL || tk < tokens + ret) {
+    if (last_token == NULL || last_token < tki->tokens + ret) {
+        token_info_free(tki);
         printf_u8("parsering falied!!!\n");
     } else {
-        groups->flag = flag | extra_flag;
+        groups->flag = flag | tki->extra_flag;
+        token_info_free(tki);
         return groups;
     }
 
@@ -99,9 +97,9 @@ int main(int argc,char* argv[])
     //pattern = tre_compile("(?s)c.", FLAG_NONE); // c\n
     //pattern = tre_compile("(?is)C.", FLAG_NONE); // c\n
     //pattern = tre_compile("a中+文*测?试\\醃b[1\\d2+\\][\\]\\a3]厑c\\de{1,5}\\", 0); // a中中中测试醃b+厑c1eeee\\ 
-    pattern = tre_compile("(?P<asdf>1)(?:a)", FLAG_NONE); // 
+    pattern = tre_compile("(?P<asdf>1)((?:a(c))(?:d))", FLAG_NONE); // 
     if (pattern) {
-        match = tre_match(pattern, "1");
+        match = tre_match(pattern, "1acd");
 
         putchar('\n');
         if (match->groups) {

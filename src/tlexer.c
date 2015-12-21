@@ -46,13 +46,15 @@ int char_to_flag(int code) {
     return 0;
 }
 
-int tre_lexer(char* s, tre_Token** ppt, int* p_extra_flag, tre_TokenGroupName** p_group_names) {
+int tre_lexer(char* s, TokenInfo** ptki) {
     int i, code;
     int extra_flag = 0;
     int len = utf8_len(s);
     int rlen = strlen(s);
+    int max_normal_group_num = 1;
     const char* s_end = s + rlen + 1;
-    tre_TokenGroupName* group_names = NULL, *last_group_name = NULL;
+    TokenInfo* token_info;
+    TokenGroupName* group_names = NULL, *last_group_name = NULL;
 
     tre_Token* tokens = _new(tre_Token, len+1);
     tre_Token* pt = tokens;
@@ -149,7 +151,10 @@ int tre_lexer(char* s, tre_Token** ppt, int* p_extra_flag, tre_TokenGroupName** 
             state = 0;
         } else if (state == 3) {
             state = 0;
-            if (code != '?') continue;
+            if (code != '?') {
+                max_normal_group_num++;
+                continue;
+            }
             p = utf8_decode(p, &code);
             if (code == '#') {
                 bool is_escape = false;
@@ -170,7 +175,7 @@ int tre_lexer(char* s, tre_Token** ppt, int* p_extra_flag, tre_TokenGroupName** 
                 if (code == '<') {
                     char* name;
                     const char* start = p;
-                    tre_TokenGroupName* group_name;
+                    TokenGroupName* group_name;
 
                     p = utf8_decode(p, &code);
                     while (true) {
@@ -186,13 +191,15 @@ int tre_lexer(char* s, tre_Token** ppt, int* p_extra_flag, tre_TokenGroupName** 
                     memcpy(name, start, p - start - 1);
                     name[p - start - 1] = '\0';
 
-                    group_name = _new(tre_TokenGroupName, 1);
+                    group_name = _new(TokenGroupName, 1);
                     group_name->name = name;
                     group_name->tk = pt-1;
                     group_name->next = NULL;
 
                     if (!last_group_name) group_names = last_group_name = group_name;
                     else last_group_name->next = group_name;
+
+                    max_normal_group_num++;
                 } else {
                     return ERR_LEXER_UNKNOW_SPECIFIER;
                 }
@@ -219,8 +226,18 @@ int tre_lexer(char* s, tre_Token** ppt, int* p_extra_flag, tre_TokenGroupName** 
 
     pt->code = 0;
     pt->token = 0; // END OF TOKENS
-    *p_extra_flag = extra_flag;
-    *p_group_names = group_names;
-    *ppt = tokens;
+
+    token_info = _new(TokenInfo, 1);
+    token_info->tokens = tokens;
+    token_info->extra_flag = extra_flag;
+    token_info->group_names = group_names;
+    token_info->max_normal_group_num = max_normal_group_num;
+    *ptki = token_info;
+
     return pt - tokens;
+}
+
+void token_info_free(TokenInfo* tki) {
+    free(tki->tokens);
+    free(tki->group_names);
 }

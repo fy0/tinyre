@@ -21,12 +21,13 @@ typedef struct ParserMatchGroup {
     char* name;
     INS_List* codes;
     INS_List* codes_start;
+    int group_type;
     int or_num;
     OR_List* or_list;
     struct ParserMatchGroup* next;
 } ParserMatchGroup;
 
 tre_Pattern* compact_group(ParserMatchGroup* parser_groups);
-tre_Pattern* tre_parser(tre_Token* tk, tre_TokenGroupName* tk_group_names, tre_Token** last_token);
+tre_Pattern* tre_parser(TokenInfo* _tki, tre_Token** last_token);
 
 #endif
