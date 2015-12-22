@@ -169,6 +169,10 @@ int tre_lexer(char* s, TokenInfo** ptki) {
                 pt->token = 0;
             } else if (code == ':') {
                 (pt - 1)->code = GT_NONGROUPING;
+            } else if (code == '=') {
+                (pt - 1)->code = GT_IF_MATCH;
+            } else if (code == '!') {
+                (pt - 1)->code = GT_IF_NOT_MATCH;
             } else if (code == 'P') {
                 p = utf8_decode(p, &code);
                 // group name

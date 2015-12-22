@@ -60,6 +60,8 @@ typedef struct VMState {
     const char* raw_input_str;
     int* input_str;
     int group_num;
+    int group_num_all;
+    int** input_cache;
     GroupResultTemp* match_results;
     MatchGroup* groups;
     int flag;

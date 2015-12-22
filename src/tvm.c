@@ -73,6 +73,8 @@ int do_ins_cmp(VMState* vms) {
 #ifdef _DEBUG
     printf_u8("INS_CMP ");
     putcode(char_code);
+    printf(" ");
+    putcode(vms->snap->chrcode);
     putchar('\n');
 #endif
     if (char_cmp(char_code, vms->snap->chrcode, vms->flag))
@@ -170,6 +172,11 @@ int do_ins_cmp_group(VMState* vms) {
         vms->match_results[index].tmp = vms->snap->str_pos;
     }
 
+    // save input cache
+    if (g->type == GT_IF_MATCH) {
+        vms->input_cache[index - vms->group_num] = vms->snap->str_pos;
+    }
+
     return 1;
 }
 
@@ -178,6 +185,7 @@ int do_ins_group_end(VMState* vms) {
     RunCache *rc;
     int index = *(vms->snap->codes + 1);
     if (index == -1) index = vms->snap->cur_group;
+    MatchGroup* g = vms->groups + index;
 
     TRE_DEBUG_PRINT("INS_GROUP_END\n");
 
@@ -195,6 +203,12 @@ int do_ins_group_end(VMState* vms) {
     if (index < vms->group_num) {
         vms->match_results[index].head = vms->match_results[index].tmp;
         vms->match_results[index].tail = vms->snap->str_pos;
+    }
+
+    // load input cache
+    if (g->type == GT_IF_MATCH) {
+        vms->snap->str_pos = vms->input_cache[index - vms->group_num];
+        vms->snap->chrcode = *vms->snap->str_pos;
     }
 
     // end if GROUP(0) matched
@@ -392,7 +406,13 @@ VMState* vm_init(tre_Pattern* groups_info, const char* input_str) {
     vms->input_str = u8str_to_u32str(input_str);
 
     vms->group_num = groups_info->num;
+    vms->group_num_all = groups_info->num_all;
     vms->groups = groups_info->groups;
+    if (groups_info->num_all > groups_info->num) {
+        vms->input_cache = _new(int*, groups_info->num_all - groups_info->num);
+    } else {
+        vms->input_cache = NULL;
+    }
     vms->flag = groups_info->flag;
 
     // init match results of groups

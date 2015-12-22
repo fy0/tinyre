@@ -21,7 +21,6 @@ void tre_err(const char* s) {
 tre_Pattern* tre_compile(char* s, int flag) {
     int ret;
     tre_Token *last_token;
-    //TokenGroupName* group_names;
     TokenInfo* tki;
 
     ret = tre_lexer(s, &tki);
@@ -97,9 +96,10 @@ int main(int argc,char* argv[])
     //pattern = tre_compile("(?s)c.", FLAG_NONE); // c\n
     //pattern = tre_compile("(?is)C.", FLAG_NONE); // c\n
     //pattern = tre_compile("a中+文*测?试\\醃b[1\\d2+\\][\\]\\a3]厑c\\de{1,5}\\", 0); // a中中中测试醃b+厑c1eeee\\ 
-    pattern = tre_compile("(?P<asdf>1)((?:a(c))(?:d))", FLAG_NONE); // 
+    //pattern = tre_compile("(?P<asdf>1)((?:a(c))(?:d))", FLAG_NONE); // 1acd
+    pattern = tre_compile("(?=ac).cb", FLAG_NONE);
     if (pattern) {
-        match = tre_match(pattern, "1acd");
+        match = tre_match(pattern, "acb");
 
         putchar('\n');
         if (match->groups) {
