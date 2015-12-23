@@ -61,11 +61,11 @@ typedef struct VMState {
     int* input_str;
     int group_num;
     int group_num_all;
-    int** input_cache;
-    GroupResultTemp* match_results;
     MatchGroup* groups;
     int flag;
 
+    int** input_cache;
+    GroupResultTemp* match_results;
     VMSnap* snap;
 } VMState;
 

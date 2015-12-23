@@ -97,9 +97,12 @@ int main(int argc,char* argv[])
     //pattern = tre_compile("(?is)C.", FLAG_NONE); // c\n
     //pattern = tre_compile("a中+文*测?试\\醃b[1\\d2+\\][\\]\\a3]厑c\\de{1,5}\\", 0); // a中中中测试醃b+厑c1eeee\\ 
     //pattern = tre_compile("(?P<asdf>1)((?:a(c))(?:d))", FLAG_NONE); // 1acd
-    pattern = tre_compile("(?=ac).cb", FLAG_NONE);
+    //pattern = tre_compile("(?!a)+b", FLAG_NONE); // b
+    //pattern = tre_compile("(?!(eb|ec))e", FLAG_NONE); // efe
+    //pattern = tre_compile("(?=(c|(e)(b)))e", FLAG_NONE); // eb
+    pattern = tre_compile("(?!(e)(c))e", FLAG_NONE);
     if (pattern) {
-        match = tre_match(pattern, "acb");
+        match = tre_match(pattern, "eb");
 
         putchar('\n');
         if (match->groups) {

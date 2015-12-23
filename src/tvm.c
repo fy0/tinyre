@@ -14,7 +14,9 @@ VMSnap* snap_dup(VMSnap* src) {
         for (rc_src = src->run_cache; rc_src; rc_src = rc_src->prev) {
             rc->codes_cache = rc_src->codes_cache;
             rc->mr = rc_src->mr;
+            rc->cur_group = rc_src->cur_group;
             rc->prev = rc_src->prev ? _new(RunCache, 1) : NULL;
+            rc = rc->prev;
         }
     } else {
         snap->run_cache = NULL;
@@ -147,12 +149,33 @@ int do_ins_cmp_multi(VMState* vms, bool is_ncmp) {
 }
 
 _INLINE static
+void save_snap(VMState* vms) {
+    TRE_DEBUG_PRINT("INS_SAVE_SNAP\n");
+    vms->snap->prev = snap_dup(vms->snap);
+}
+
+_INLINE static
 int do_ins_cmp_group(VMState* vms) {
     RunCache *rc;
     int index = *(vms->snap->codes + 1);
     MatchGroup* g = vms->groups + index;
 
-    TRE_DEBUG_PRINT("INS_CMP_GROUP\n");
+#if _DEBUG
+    printf("INS_CMP_GROUP %d\n", index);
+#endif
+
+    // save input cache
+    if (g->type == GT_IF_MATCH) {
+        vms->input_cache[index - vms->group_num] = vms->snap->str_pos;
+    } else if (g->type == GT_IF_NOT_MATCH) {
+        if (vms->snap->mr.enable == 1) {
+            save_snap(vms);
+        } else {
+            vms->snap->codes += 2;
+            save_snap(vms);
+            vms->snap->codes -= 2;
+        }
+    }
 
     // new cache
     rc = _new(RunCache, 1);
@@ -172,11 +195,6 @@ int do_ins_cmp_group(VMState* vms) {
         vms->match_results[index].tmp = vms->snap->str_pos;
     }
 
-    // save input cache
-    if (g->type == GT_IF_MATCH) {
-        vms->input_cache[index - vms->group_num] = vms->snap->str_pos;
-    }
-
     return 1;
 }
 
@@ -186,8 +204,11 @@ int do_ins_group_end(VMState* vms) {
     int index = *(vms->snap->codes + 1);
     if (index == -1) index = vms->snap->cur_group;
     MatchGroup* g = vms->groups + index;
+    VMSnap* snap_tmp;
 
-    TRE_DEBUG_PRINT("INS_GROUP_END\n");
+#if _DEBUG
+    printf("INS_GROUP_END %d\n", *(vms->snap->codes + 1));
+#endif
 
     // load cache
     rc = vms->snap->run_cache;
@@ -199,27 +220,30 @@ int do_ins_group_end(VMState* vms) {
         free(rc);
     }
 
+    // load input cache
+    if (g->type == GT_IF_MATCH) {
+        vms->snap->str_pos = vms->input_cache[index - vms->group_num];
+        vms->snap->chrcode = *vms->snap->str_pos;
+    } else if (g->type == GT_IF_NOT_MATCH) {
+        int* next_ins = vms->snap->codes + 2;
+        if (vms->snap->mr.enable == 1) next_ins -= 2;
+        do {
+            snap_tmp = vms->snap;
+            vms->snap = vms->snap->prev;
+            free(snap_tmp);
+        } while (vms->snap->codes != next_ins);
+        return 0;
+    }
+
     // set match result
     if (index < vms->group_num) {
         vms->match_results[index].head = vms->match_results[index].tmp;
         vms->match_results[index].tail = vms->snap->str_pos;
     }
 
-    // load input cache
-    if (g->type == GT_IF_MATCH) {
-        vms->snap->str_pos = vms->input_cache[index - vms->group_num];
-        vms->snap->chrcode = *vms->snap->str_pos;
-    }
-
     // end if GROUP(0) matched
     // 2 is length of CMP_GROUP
     return (index == 0) ? -1 : 2;
-}
-
-_INLINE static
-void save_snap(VMState* vms) {
-    TRE_DEBUG_PRINT("INS_SAVE_SNAP\n");
-    vms->snap->prev = snap_dup(vms->snap);
 }
 
 _INLINE static
@@ -288,6 +312,7 @@ int do_ins_save_snap(VMState* vms) {
     // group start + offset + length of group_end
     vms->snap->codes = vms->groups[vms->snap->cur_group].codes + (*(vms->snap->codes + 1) / sizeof(int)) + 2;
     save_snap(vms);
+    printf("%d %d\n", vms->snap->cur_group, vms->snap->run_cache->cur_group);
     vms->snap->codes = tmp + 2;
     return 2;
 }
