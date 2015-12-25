@@ -30,7 +30,13 @@ void debug_ins_list_print(ParserMatchGroup* groups) {
 
     for (ParserMatchGroup *g = groups; g; g = g->next) {
         if (gnum == 0) printf_u8("\nInstructions : Group 0\n");
-        else printf_u8("\nInstructions : Group %d (%d)\n", gnum, g->group_type);
+        else {
+            printf_u8("\nInstructions : Group %d (%d)", gnum, g->group_type);
+            if (g->group_type == GT_IF_PRECEDED_BY || g->group_type == GT_IF_NOT_PRECEDED_BY) {
+                printf_u8(" [%d]", g->group_extra);
+            }
+            putchar('\n');
+        }
         gnum++;
 
         for (INS_List* code = g->codes_start; code->next; code = code->next) {

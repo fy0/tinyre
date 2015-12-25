@@ -29,14 +29,14 @@ utf-8 supported.
 *    (?P<name>...) The substring matched by the group is accessible by name.
 *    (?=...)  Matches if ... matches next, but doesn't consume the string.
 *    (?!...)  Matches if ... doesn't match next.
+*    (?<=...) Matches if preceded by ... (must be fixed length).
+*    (?<!...) Matches if not preceded by ... (must be fixed length).
 *    Flag: DOTALL
 *    Flag: IGNORECASE
 
 
 **Unsupported**:
 *    (?P=name)     Matches the text matched earlier by the group named name.
-*    (?<=...) Matches if preceded by ... (must be fixed length).
-*    (?<!...) Matches if not preceded by ... (must be fixed length).
 *    (?(id/name)yes|no) Matches yes pattern if the group with id/name matched, the (optional) no pattern otherwise.
 *    Flag: MULTILINE
 

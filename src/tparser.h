@@ -22,6 +22,7 @@ typedef struct ParserMatchGroup {
     INS_List* codes;
     INS_List* codes_start;
     int group_type;
+    int group_extra; // used by (?<=) (?<!)
     int or_num;
     OR_List* or_list;
     struct ParserMatchGroup* next;
@@ -29,5 +30,8 @@ typedef struct ParserMatchGroup {
 
 tre_Pattern* compact_group(ParserMatchGroup* parser_groups);
 tre_Pattern* tre_parser(TokenInfo* _tki, tre_Token** last_token);
+
+// look-behind requires fixed-width pattern
+#define ERR_PARSER_REQUIRES_FIXED_WIDTH_PATTERN   -11
 
 #endif

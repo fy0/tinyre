@@ -207,6 +207,16 @@ int tre_lexer(char* s, TokenInfo** ptki) {
                 } else {
                     return ERR_LEXER_UNKNOW_SPECIFIER;
                 }
+            } else if (code == '<') {
+                p = utf8_decode(p, &code);
+                if (code == '=') {
+                    (pt - 1)->code = GT_IF_PRECEDED_BY;
+                } else if (code == '!') {
+                    (pt - 1)->code = GT_IF_NOT_PRECEDED_BY;
+                } else {
+                    // tip: the error of sre (syntax error) is meaningless.
+                    return ERR_LEXER_UNKNOW_SPECIFIER;
+                }
             } else if (char_to_flag(code)) {
                 int flag = 0;
                 while (true) {

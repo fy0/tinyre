@@ -14,6 +14,8 @@ enum GROUP_TYPE {
     GT_NONGROUPING = 1,
     GT_IF_MATCH,
     GT_IF_NOT_MATCH,
+    GT_IF_PRECEDED_BY,
+    GT_IF_NOT_PRECEDED_BY,
 };
 
 typedef struct tre_Token {

@@ -31,6 +31,7 @@ enum tre_Flag {
 typedef struct MatchGroup {
     char* name;
     int type;
+    int extra;
     int* codes;
 } MatchGroup;
 

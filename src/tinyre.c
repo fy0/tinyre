@@ -79,7 +79,7 @@ int main(int argc,char* argv[])
     tre_Pattern* pattern;
     tre_Match* match = NULL;
     platform_init();
-    
+
     //tre_compile("a中+文*测?试\\醃b[1\\d2+\\][\\]\\a3]厑c\\de{1,5}\\", 0);
     //tre_compile("abc\\a\\d([123](c)d)jk123", 0);
     //MatchGroup* groups = tre_compile("ab?c+\\a*\\d([123]+(c)?d)jk123", 0);
@@ -100,9 +100,11 @@ int main(int argc,char* argv[])
     //pattern = tre_compile("(?!a)+b", FLAG_NONE); // b
     //pattern = tre_compile("(?!(eb|ec))e", FLAG_NONE); // efe
     //pattern = tre_compile("(?=(c|(e)(b)))e", FLAG_NONE); // eb
-    pattern = tre_compile("(?!(e)(c))e", FLAG_NONE);
+    //pattern = tre_compile("e(?<=((?=(e*))e))e", FLAG_NONE); //ee
+    //pattern = tre_compile("c(?<!b)e", FLAG_NONE); //ce
+    pattern = tre_compile("c(?<!bc{10})e", FLAG_NONE); //ce
     if (pattern) {
-        match = tre_match(pattern, "eb");
+        match = tre_match(pattern, "ce");
 
         putchar('\n');
         if (match->groups) {

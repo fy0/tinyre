@@ -8,11 +8,15 @@
 #define paser_accept(__stat) if (!((__stat))) return NULL;
 #define check_token(tk) if (tk == NULL || tk->token == 0) return NULL;
 
+int error_code = 0;
 ParserMatchGroup* m_start = NULL;
 ParserMatchGroup* m_cur = NULL;
 
 TokenInfo* tk_info;
 TokenGroupName* tk_group_names;
+
+bool is_count_width = false;
+int match_width;
 
 tre_Token* parser_char_set(tre_Token* tk);
 tre_Token* parser_char(tre_Token* tk);
@@ -85,8 +89,9 @@ tre_Token* parser_char(tre_Token* tk) {
     TRE_DEBUG_PRINT("CHAR\n");
 
     tre_Token* ret = parser_single_char(tk);
-    if (ret) return ret;
-    return parser_char_set(tk);
+    if (!ret) ret = parser_char_set(tk);
+    if (ret && is_count_width) match_width += 1;
+    return ret;
 }
 
 tre_Token* parser_other_tokens(tre_Token* tk) {
@@ -189,6 +194,16 @@ tre_Token* parser_block(tre_Token* tk) {
                 ret ++;
                 greed = false;
             }
+
+            if (is_count_width) {
+                if (llimit != rlimit) {
+                    error_code = ERR_PARSER_REQUIRES_FIXED_WIDTH_PATTERN;
+                    return NULL;
+                }
+                if (llimit > 0) {
+                    match_width += llimit - 1;
+                }
+            }
         }
 
         // CODE GENERATE
@@ -222,6 +237,9 @@ tre_Token* parser_group(tre_Token* tk) {
     tre_Token* ret;
     ParserMatchGroup* last_group;
 
+    int match_width_record;
+    bool is_count_width_record = is_count_width;
+
     TRE_DEBUG_PRINT("GROUP\n");
 
     paser_accept(tk->token == '(');
@@ -231,6 +249,16 @@ tre_Token* parser_group(tre_Token* tk) {
     group_type = tk->code;
     if (group_type == GT_NORMAL) gindex = 1;
     else gindex = tk_info->max_normal_group_num;
+
+    // code for (?<=...) (?<!...)
+    if (group_type == GT_IF_PRECEDED_BY || group_type == GT_IF_NOT_PRECEDED_BY) {
+        if (!is_count_width) is_count_width = true;
+        match_width_record = match_width;
+    }
+    if (is_count_width && (group_type == GT_IF_MATCH || group_type == GT_IF_NOT_MATCH)) {
+        is_count_width = false;
+    }
+    // end
 
     tk++;
     check_token(tk);
@@ -261,6 +289,16 @@ tre_Token* parser_group(tre_Token* tk) {
     while ((ret = parser_block(ret))) tk = ret;
 
     paser_accept(tk->token == ')');
+
+    // code for (?<=...) (?<!...)
+    if (group_type == GT_IF_PRECEDED_BY || group_type == GT_IF_NOT_PRECEDED_BY) {
+        m_cur->group_extra = match_width - match_width_record;
+    }
+
+    if (is_count_width_record != is_count_width) {
+        is_count_width = is_count_width_record;
+    }
+    // end
 
     // CODE GENERATE
     // CMP_GROUP INDEX
@@ -319,6 +357,11 @@ tre_Pattern* tre_parser(TokenInfo* tki, tre_Token** last_token) {
     tre_Token* tokens;
     tre_Pattern* ret;
 
+    error_code = 0;
+
+    match_width = 0;
+    is_count_width = false;
+
     tk_info = tki;
     tk_group_names = tki->group_names;
 
@@ -375,6 +418,7 @@ tre_Pattern* compact_group(ParserMatchGroup* parser_groups) {
         g->codes = malloc(code_lens + sizeof(int) * 2);
         g->name = pg->name;
         g->type = pg->group_type;
+        g->extra = pg->group_extra;
 
         if (pg->or_num) {
             code_lens = pg->or_num * 2 * sizeof(int); // recount

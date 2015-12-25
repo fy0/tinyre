@@ -164,10 +164,10 @@ int do_ins_cmp_group(VMState* vms) {
     printf("INS_CMP_GROUP %d\n", index);
 #endif
 
-    // save input cache
+    // works for special groups (?=) (?!) (?<=) (?<!)
     if (g->type == GT_IF_MATCH) {
         vms->input_cache[index - vms->group_num] = vms->snap->str_pos;
-    } else if (g->type == GT_IF_NOT_MATCH) {
+    } else if (g->type == GT_IF_NOT_MATCH || g->type == GT_IF_NOT_PRECEDED_BY) {
         if (vms->snap->mr.enable == 1) {
             save_snap(vms);
         } else {
@@ -175,6 +175,23 @@ int do_ins_cmp_group(VMState* vms) {
             save_snap(vms);
             vms->snap->codes -= 2;
         }
+
+        if (g->type == GT_IF_NOT_PRECEDED_BY) {
+            // current matched length less than group's length
+            if (vms->snap->str_pos - vms->input_str < g->extra) {
+                return 0;
+            }
+            vms->snap->str_pos = vms->snap->str_pos - g->extra;
+            vms->snap->chrcode = *vms->snap->str_pos;
+        }
+    } else if (g->type == GT_IF_PRECEDED_BY) {
+        // current matched length less than group's length
+        if (vms->snap->str_pos - vms->input_str < g->extra) {
+            return 0;
+        }
+        vms->input_cache[index - vms->group_num] = vms->snap->str_pos;
+        vms->snap->str_pos = vms->snap->str_pos - g->extra;
+        vms->snap->chrcode = *vms->snap->str_pos;
     }
 
     // new cache
@@ -220,11 +237,11 @@ int do_ins_group_end(VMState* vms) {
         free(rc);
     }
 
-    // load input cache
-    if (g->type == GT_IF_MATCH) {
+    // works for special groups (?=) (?!) (?<=) (?<!)
+    if (g->type == GT_IF_MATCH || g->type == GT_IF_PRECEDED_BY) {
         vms->snap->str_pos = vms->input_cache[index - vms->group_num];
         vms->snap->chrcode = *vms->snap->str_pos;
-    } else if (g->type == GT_IF_NOT_MATCH) {
+    } else if (g->type == GT_IF_NOT_MATCH || g->type == GT_IF_NOT_PRECEDED_BY) {
         int* next_ins = vms->snap->codes + 2;
         if (vms->snap->mr.enable == 1) next_ins -= 2;
         do {
