@@ -51,7 +51,7 @@ int jump_one_cmp(VMState* vms) {
     if (ins >= 1 && ins <= 5) {
         if (ins >= 3 && ins <= 4) {
             num = *(vms->snap->codes + 1);
-            vms->snap->codes += (num * 2 + 2);
+            vms->snap->codes += (num * 3 + 2);
         } else {
             vms->snap->codes += 2;
         }
@@ -114,6 +114,18 @@ int do_ins_cmp_spe(VMState* vms) {
     return 0;
 }
 
+_INLINE static bool
+char_cmp_range(int range1, int range2, int chrcode, int flag) {
+    if (flag & FLAG_IGNORECASE) {
+        if (!('Z' < chrcode && chrcode < 'a')) {
+            range1 = tolower(range1);
+            range2 = tolower(range2);
+            chrcode = tolower(chrcode);
+        }
+    }
+    return (range1 <= chrcode) && (chrcode <= range2);
+}
+
 _INLINE static
 int do_ins_cmp_multi(VMState* vms, bool is_ncmp) {
     int i;
@@ -124,9 +136,13 @@ int do_ins_cmp_multi(VMState* vms, bool is_ncmp) {
 
     TRE_DEBUG_PRINT("INS_CMP_MULTI\n");
 
+    if (vms->snap->chrcode == 0) {
+        return 0;
+    }
+
     for (i = 0; i < num; i++) {
-        _type = *((int*)data + i * 2);
-        _code = *((int*)data + i * 2 + 1);
+        _type = *((int*)data + i * 3);
+        _code = *((int*)data + i * 3 + 1);
 
         if (_type == TK_CHAR) {
             if (char_cmp(_code, vms->snap->chrcode, vms->flag)) {
@@ -138,13 +154,18 @@ int do_ins_cmp_multi(VMState* vms, bool is_ncmp) {
                 match = true;
                 break;
             }
+        } else if (_type == '-') {
+            if (char_cmp_range(_code, *((int*)data + i * 3 + 2), vms->snap->chrcode, vms->flag)) {
+                match = true;
+                break;
+            }
         }
     }
 
     if (is_ncmp) {
-        return match ? 0 : (num * 2 + 2);
+        return match ? 0 : (num * 3 + 2);
     } else {
-        return match ? (num * 2 + 2) : 0;
+        return match ? (num * 3 + 2) : 0;
     }
 }
 

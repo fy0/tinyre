@@ -33,5 +33,7 @@ tre_Pattern* tre_parser(TokenInfo* _tki, tre_Token** last_token);
 
 // look-behind requires fixed-width pattern
 #define ERR_PARSER_REQUIRES_FIXED_WIDTH_PATTERN   -11
+// bad character range
+#define ERR_PARSER_BAD_CHARACTER_RANGE            -12
 
 #endif

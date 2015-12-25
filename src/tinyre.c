@@ -102,9 +102,14 @@ int main(int argc,char* argv[])
     //pattern = tre_compile("(?=(c|(e)(b)))e", FLAG_NONE); // eb
     //pattern = tre_compile("e(?<=((?=(e*))e))e", FLAG_NONE); //ee
     //pattern = tre_compile("c(?<!b)e", FLAG_NONE); //ce
-    pattern = tre_compile("c(?<!bc{10})e", FLAG_NONE); //ce
+    //pattern = tre_compile("c(?<!bc{10})e", FLAG_NONE); //ce
+    //pattern = tre_compile("[123,4]{3}", FLAG_NONE); //4,1
+    //pattern = tre_compile("[----a-z123,4d-e]+", FLAG_NONE); //4,1-f
+    //pattern = tre_compile("[\\S-z]+", FLAG_NONE); //a
+    //pattern = tre_compile("[\\r-A]+", FLAG_IGNORECASE); //[ //not match
+    pattern = tre_compile("[\\r-A]+", FLAG_NONE);
     if (pattern) {
-        match = tre_match(pattern, "ce");
+        match = tre_match(pattern, "a");
 
         putchar('\n');
         if (match->groups) {

@@ -52,10 +52,22 @@ void debug_ins_list_print(ParserMatchGroup* groups) {
                 printf_u8("%15s %d ", "CMP_MULTI", *(int*)code->data);
                 printf_u8("%6d    ", *((int*)code->data + 1));
                 putcode(*((int*)code->data + 2));
+
+                if (*((int*)code->data + 1) == '-') {
+                    printf(" ");
+                    putcode(*((int*)code->data + 3));
+                }
+
                 putchar('\n');
                 for (int i = 1; i < *(int*)code->data; i++) {
-                    printf_u8("                    %4d    ", *((int*)code->data + i * 2 + 1));
-                    putcode(*((int*)code->data + i * 2 + 2));
+                    printf_u8("                    %4d    ", *((int*)code->data + i * 3 + 1));
+                    putcode(*((int*)code->data + i * 3 + 2));
+
+                    if (*((int*)code->data + i * 3 + 1) == '-') {
+                        printf(" ");
+                        putcode(*((int*)code->data + i * 3 + 3));
+                    }
+
                     putchar('\n');
                 }
             } else if (code->ins == ins_cmp_group) {

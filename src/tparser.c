@@ -40,10 +40,44 @@ tre_Token* parser_single_char(tre_Token* tk) {
     return NULL;
 }
 
+static _INLINE
+tre_Token* parser_char_set_test_single(tre_Token* tk) {
+    paser_accept(tk->token == TK_CHAR || tk->token == TK_SPE_CHAR || tk->token == '-');
+    if (tk->token == '-') {
+        tk->code = '-';
+        tk->token = TK_CHAR;
+    }
+    return tk + 1;
+}
+
+static _INLINE
+tre_Token* parser_char_set_test_range(tre_Token* tk) {
+    paser_accept(tk->token == TK_CHAR || tk->token == '-');
+    tk++;
+    paser_accept((tk++)->token == '-');
+    paser_accept(tk->token == TK_CHAR || tk->token == '-');
+    tk++;
+    // reset token
+    if ((tk - 1)->token == '-') {
+        (tk - 1)->code = '-';
+        (tk - 1)->token = TK_CHAR;
+    }
+    if ((tk - 3)->token == '-') {
+        (tk - 3)->code = '-';
+        (tk - 3)->token = TK_CHAR;
+    }
+    // swap tk-2, tk-3 => [a-z] to [-az]
+    (tk - 2)->code = (tk - 3)->code;
+    (tk - 2)->token = TK_CHAR;
+    (tk - 3)->token = '-';
+    return tk;
+}
+
 tre_Token* parser_char_set(tre_Token* tk) {
-    int num;
+    int num = 0;
     int* data;
     bool is_ncmp;
+    tre_Token* ret;
     tre_Token* start;
 
     TRE_DEBUG_PRINT("CHAR_SET\n");
@@ -53,21 +87,22 @@ tre_Token* parser_char_set(tre_Token* tk) {
     tk++;
     check_token(tk);
     start = tk;
-    paser_accept(tk->token == TK_CHAR || tk->token == TK_SPE_CHAR);
-    tk++;
-    check_token(tk);
-    while ((tk->token == TK_CHAR || tk->token == TK_SPE_CHAR)) {
-        tk++;
+    
+    while (tk->token == TK_CHAR || tk->token == TK_SPE_CHAR || tk->token == '-') {
+        ret = parser_char_set_test_range(tk);
+        if (!ret) ret = parser_char_set_test_single(tk);
+        tk = ret;
         check_token(tk);
+        num++;
     }
+
     paser_accept(tk->token == ']');
 
     // CODE GENERATE
-    // CMP_MULTI NUM [TYPE1 CODE1], [TYPE2, CODE2], ...
-    num = tk - start;
+    // CMP_MULTI NUM [TYPE1 CODE1 NOOP], [TYPE2 CODE2 NOOP], [TYPE3 RANGE1 RANGE2] ...
     m_cur->codes->ins = is_ncmp ? ins_ncmp_multi : ins_cmp_multi;
-    m_cur->codes->data = _new(int, 2 * num + 1);
-    m_cur->codes->len = sizeof(int) * (2 * num + 1);
+    m_cur->codes->data = _new(int, 3 * num + 1);
+    m_cur->codes->len = sizeof(int) * (3 * num + 1);
     // END
 
     data = (int*)m_cur->codes->data;
@@ -75,8 +110,18 @@ tre_Token* parser_char_set(tre_Token* tk) {
 
     for (; start != tk; start++) {
         *data = start->token;
-        *(data + 1) = start->code;
-        data += 2;
+        if (start->token == '-') {
+            *(data + 1) = (start+1)->code;
+            *(data + 2) = (start+2)->code;
+            if ((start + 2)->code < (start + 1)->code) {
+                error_code = ERR_PARSER_BAD_CHARACTER_RANGE;
+                return NULL;
+            }
+            start += 2;
+        } else {
+            *(data + 1) = start->code;
+        }
+        data += 3;
     }
 
     m_cur->codes->next = _new(INS_List, 1);

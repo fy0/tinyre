@@ -13,6 +13,26 @@ bool token_check(int code) {
 }
 
 _INLINE static
+bool is_spe_char(int code) {
+    const char other_tokens[] = "DdWwSs";
+    for (const char *p = other_tokens; *p; p++) {
+        if (code == *p) return true;
+    }
+    return false;
+}
+
+
+_INLINE static
+int try_get_escape(int code) {
+    const char other_tokens[] = "abfnrtv";
+    const int other_codes[] = { 7, 8, 12, 10, 13, 9, 11 };
+    for (const char *p = other_tokens; *p; p++) {
+        if (code == *p) return other_codes[p-other_tokens];
+    }
+    return code;
+}
+
+_INLINE static
 void token_char_accept(int code, const char* s_end, const char** pp, tre_Token** ppt) {
     const char* p = *pp;
     tre_Token* pt = *ppt;
@@ -25,8 +45,13 @@ void token_char_accept(int code, const char* s_end, const char** pp, tre_Token**
         // 如果不是，读下一个字符
         } else {
             p = utf8_decode(p, &code);
-            pt->code = code;
-            (pt++)->token = TK_SPE_CHAR;
+            if (is_spe_char(code)) {
+                pt->code = code;
+                (pt++)->token = TK_SPE_CHAR;
+            } else {
+                pt->code = try_get_escape(code);
+                (pt++)->token = TK_CHAR;
+            }
         }
     } else {
         pt->code = code;
@@ -79,10 +104,13 @@ int tre_lexer(char* s, TokenInfo** ptki) {
             else {
                 token_char_accept(code, s_end, &p, &pt);
 
-                if ((pt-1)->token == TK_CHAR) {
-                    if ((pt-1)->code == ']') {
+                if ((pt - 1)->token == TK_CHAR) {
+                    if ((pt-1)->code == ']' && *p != '-') {
                         (pt-1)->token = ']';
                         state = 0;
+                    }
+                    if ((pt - 1)->code == '-') {
+                        (pt - 1)->token = '-';
                     }
                 }
             }
