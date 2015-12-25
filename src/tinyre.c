@@ -107,7 +107,7 @@ int main(int argc,char* argv[])
     //pattern = tre_compile("[----a-z123,4d-e]+", FLAG_NONE); //4,1-f
     //pattern = tre_compile("[\\S-z]+", FLAG_NONE); //a
     //pattern = tre_compile("[\\r-A]+", FLAG_IGNORECASE); //[ //not match
-    pattern = tre_compile("[\\r-A]+", FLAG_NONE);
+    pattern = tre_compile("()a", FLAG_NONE);
     if (pattern) {
         match = tre_match(pattern, "a");
 

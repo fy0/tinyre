@@ -326,6 +326,7 @@ tre_Token* parser_group(tre_Token* tk) {
     m_cur->or_list = NULL;
     m_cur->name = name;
     m_cur->group_type = group_type;
+    m_cur->codes->next = NULL;
 
     if (tk_group_names) 
         tk_group_names = tk_group_names->next;
