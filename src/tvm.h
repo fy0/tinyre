@@ -8,7 +8,8 @@
 #define ins_cmp_spe               2
 #define ins_cmp_multi             3
 #define ins_ncmp_multi            4
-#define ins_cmp_group             5
+#define ins_cmp_backref           5
+#define ins_cmp_group             6
 
 #define ins_check_point           20
 #define ins_check_point_no_greed  21

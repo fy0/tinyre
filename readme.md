@@ -4,9 +4,19 @@
 A tiny regex engine.  
 Plan to be compatible with "Secret Labs' Regular Expression Engine"(SRE for python).  
 
-utf-8 supported.
-
 **warning: current version is still unstable!!!**
+
+**Features**:  
+* **utf-8 support**  
+  Long live the unicode!  
+
+* **no octal number**  
+  \\1 means group 1, \\1-100 means group n, \\01 match \\1, \\07 match \\7, \\08 match ['\\0', '8'], \\377 match 0o377, but \\400 isn't match with 0o400 and [chr(0o40), '\\0']!  
+  What the hell ... I choose go die! No octal number support!  
+
+* **more than 100 groups ...**  
+  but who cares?  
+
 
 **Supported**:
 *    "."      Matches any character except a newline.
@@ -14,6 +24,7 @@ utf-8 supported.
 *    "+"      Matches 1 or more (greedy) repetitions of the preceding RE.
 *    "?"      Matches 0 or 1 (greedy) of the preceding RE.
 *    "\\"     Either escapes special characters or signals a special sequence.
+*    "\\1-N"  Matches the text matched earlier by the group index.  
 *    []       Indicates a set of characters.
 *    [^]      A "^" as the first character indicates a complementing set.
 *    (...)    Matches the RE inside the parentheses. The contents can be retrieved or matched later in the string.

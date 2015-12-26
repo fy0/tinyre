@@ -18,6 +18,8 @@ void debug_token_print(tre_Token* tokens, int len) {
                 printf("S ");
                 if (p->code != '.') putchar('\\');
                 putcode(p->code);
+            } else if (p->token == TK_BACK_REF) {
+                printf("R %d\n", p->code);
             }
         }
         putchar('\n');
@@ -70,6 +72,8 @@ void debug_ins_list_print(ParserMatchGroup* groups) {
 
                     putchar('\n');
                 }
+            } else if (code->ins == ins_cmp_backref) {
+                printf_u8("%15s %d\n", "CMP_BACKREF", *(int*)code->data);
             } else if (code->ins == ins_cmp_group) {
                 printf_u8("%15s %d\n", "CMP_GROUP", *(int*)code->data);
             } else if (code->ins == ins_check_point) {

@@ -9,6 +9,7 @@
 #define check_token(tk) if (tk == NULL || tk->token == 0) return NULL;
 
 int error_code = 0;
+int avaliable_group;
 ParserMatchGroup* m_start = NULL;
 ParserMatchGroup* m_cur = NULL;
 
@@ -186,6 +187,23 @@ tre_Token* parser_or(tre_Token* tk) {
     return tk + 1;
 }
 
+tre_Token* parser_back_ref(tre_Token* tk) {
+    if (tk->token == TK_BACK_REF) {
+        // CODE GENERATE
+        // CMP_BACKREF INDEX
+        m_cur->codes->ins = ins_cmp_backref;
+        m_cur->codes->data = _new(int, 1);
+        m_cur->codes->len = sizeof(int) * 1;
+        *(int*)m_cur->codes->data = tk->code;
+        m_cur->codes->next = _new(INS_List, 1);
+        m_cur->codes = m_cur->codes->next;
+        m_cur->codes->next = NULL;
+        // END
+        return tk + 1;
+    }
+    return NULL;
+}
+
 tre_Token* parser_block(tre_Token* tk) {
     tre_Token *ret, *ret2;
     INS_List* last_ins;
@@ -197,6 +215,7 @@ tre_Token* parser_block(tre_Token* tk) {
 
     ret = parser_char(tk);
     if (!ret) ret = parser_group(tk);
+    if (!ret) ret = parser_back_ref(tk);
     if (!ret) {
         ret2 = parser_or(tk);
         if (ret2) return ret2;
@@ -292,8 +311,12 @@ tre_Token* parser_group(tre_Token* tk) {
         name = tk_group_names->name;
 
     group_type = tk->code;
-    if (group_type == GT_NORMAL) gindex = 1;
-    else gindex = tk_info->max_normal_group_num;
+    if (group_type == GT_NORMAL) {
+        gindex = 1;
+        avaliable_group++;
+    } else {
+        gindex = tk_info->max_normal_group_num;
+    }
 
     // code for (?<=...) (?<!...)
     if (group_type == GT_IF_PRECEDED_BY || group_type == GT_IF_NOT_PRECEDED_BY) {
@@ -404,6 +427,7 @@ tre_Pattern* tre_parser(TokenInfo* tki, tre_Token** last_token) {
     tre_Pattern* ret;
 
     error_code = 0;
+    avaliable_group = 1;
 
     match_width = 0;
     is_count_width = false;

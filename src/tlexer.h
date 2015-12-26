@@ -7,6 +7,7 @@
 enum TOKEN_LIST {
     TK_CHAR = FIRST_TOKEN,
     TK_SPE_CHAR,
+    TK_BACK_REF,
 };
 
 enum GROUP_TYPE {

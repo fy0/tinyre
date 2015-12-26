@@ -170,6 +170,33 @@ int do_ins_cmp_multi(VMState* vms, bool is_ncmp) {
 }
 
 _INLINE static
+int do_ins_cmp_backref(VMState* vms) {
+    int index = *(vms->snap->codes + 1);
+
+    TRE_DEBUG_PRINT("INS_CMP_BACKREF\n");
+
+    if (index >= vms->group_num)
+        return 0;
+
+    if (vms->match_results[index].head && vms->match_results[index].tail) {
+        int *p = vms->match_results[index].head;
+        int *tail = vms->match_results[index].tail;
+        int *p2 = vms->snap->str_pos;
+
+        while (p != tail) {
+            if (!char_cmp(*p, *p2, vms->flag)) return 0;
+            p++;
+            p2++;
+        }
+
+        vms->snap->str_pos = p2;
+        return 2;
+    }
+
+    return 0;
+}
+
+_INLINE static
 void save_snap(VMState* vms) {
     TRE_DEBUG_PRINT("INS_SAVE_SNAP\n");
     vms->snap->prev = snap_dup(vms->snap);
@@ -372,6 +399,8 @@ int vm_step(VMState* vms) {
             ret = do_ins_cmp_multi(vms, false);
         } else if (cur_ins == ins_ncmp_multi) {
             ret = do_ins_cmp_multi(vms, true);
+        } else if (cur_ins == ins_cmp_backref) {
+            ret = do_ins_cmp_backref(vms);
         } else if (cur_ins == ins_cmp_group) {
             ret = do_ins_cmp_group(vms);
         } else if (cur_ins == ins_group_end) {
