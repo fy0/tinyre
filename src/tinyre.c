@@ -133,9 +133,9 @@ int main(int argc,char* argv[])
     //pattern = tre_compile("\\U0000000B", FLAG_NONE); // success
     //pattern = tre_compile("a{}", FLAG_NONE); // a{}
     //pattern = tre_compile("a{0,", FLAG_NONE); // a{0,
-    pattern = tre_compile("a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?aaaaaaaaaaaaaaaaaaaaaaaaa", FLAG_NONE); //
+    pattern = tre_compile("a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?aaaaaaaaaaaaaaa", FLAG_NONE); // slow, requires optimization
     if (pattern) {
-        match = tre_match(pattern, "aaaaaaaaaaaaaaaaaaaaaaaaa", 5000);
+        match = tre_match(pattern, "aaaaaaaaaaaaaaa", 50000000);
 
         if (match->groups) {
             putchar('\n');

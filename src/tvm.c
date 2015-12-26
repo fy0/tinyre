@@ -325,13 +325,16 @@ _INLINE static
 int try_backtracking(VMState* vms) {
     if (vms->snap->prev) {
         bool greed;
+        VMSnap* tmp;
 
         if (vms->backtrack_limit && vms->backtrack_num >= vms->backtrack_limit) {
             return 0;
         }
         vms->backtrack_num += 1;
 
+        tmp = vms->snap;
         vms->snap = vms->snap->prev;
+        snap_free(tmp);
         greed = vms->snap->mr.enable == 1 ? true : false;
 
         if (greed) TRE_DEBUG_PRINT("INS_BACKTRACK\n");
