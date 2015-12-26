@@ -26,36 +26,38 @@ Plan to be compatible with "Secret Labs' Regular Expression Engine"(SRE for pyth
 
 **Supported**:
 *    "."      Matches any character except a newline.
+*    "^"      Matches the start of the string.
+*    "$"      Matches the end of the string or just before the newline at the end of the string.
 *    "*"      Matches 0 or more (greedy) repetitions of the preceding RE. Greedy means that it will match as many repetitions as possible.
 *    "+"      Matches 1 or more (greedy) repetitions of the preceding RE.
 *    "?"      Matches 0 or 1 (greedy) of the preceding RE.
-*    "\\"     Either escapes special characters or signals a special sequence.
-*    "\\1-N"  Matches the text matched earlier by the group index.  
-*    []       Indicates a set of characters.
-*    [^]      A "^" as the first character indicates a complementing set.
-*    (...)    Matches the RE inside the parentheses. The contents can be retrieved or matched later in the string.
+*    *?,+?,?? Non-greedy versions of the previous three special characters.
+*    {m}      Matches m copies of the previous RE.  
 *    {m,n}    Matches from m to n repetitions of the preceding RE.
 *    {m,n}?   Non-greedy version of the above.
-*    *?,+?,?? Non-greedy versions of the previous three special characters.
-*    "^"      Matches the start of the string.
-*    "$"      Matches the end of the string or just before the newline at the end of the string.
-*    "|"      A|B, creates an RE that will match either A or B.
-*    (?#...)  A comment; ignored.
-*    (?ims) Set the I, M or S flag for the RE (see below).
-*    (?:...)  Non-grouping version of regular parentheses.
-*    (?P<name>...) The substring matched by the group is accessible by name.
-*    (?=...)  Matches if ... matches next, but doesn't consume the string.
-*    (?!...)  Matches if ... doesn't match next.
-*    (?<=...) Matches if preceded by ... (must be fixed length).
-*    (?<!...) Matches if not preceded by ... (must be fixed length).
+*    "\\"     Either escapes special characters or signals a special sequence.
+*    "\\1-N"  Matches the text matched earlier by the group index.  
+*    []       Indicates a set of characters.  
+*    [^]      A "^" as the first character indicates a complementing set.  
+*    "|"      A|B, creates an RE that will match either A or B.  
+*    (...)    Matches the RE inside the parentheses. The contents can be retrieved or matched later in the string.  
+*    (?ims)   Set the I, M or S flag for the RE (see below).  
+*    (?:...)  Non-grouping version of regular parentheses.  
+*    (?P<name>...) The substring matched by the group is accessible by name.  
+*    (?#...)  A comment; ignored.  
+*    (?=...)  Matches if ... matches next, but doesn't consume the string.  
+*    (?!...)  Matches if ... doesn't match next.  
+*    (?<=...) Matches if preceded by ... (must be fixed length).  
+*    (?<!...) Matches if not preceded by ... (must be fixed length).  
+*    \\d \\D \\w \\W \\s \\S  
 *    Flag: DOTALL
 *    Flag: IGNORECASE
+*    Flag: MULTILINE
 
 
 **Unsupported**:
 *    (?P=name)     Matches the text matched earlier by the group named name.
 *    (?(id/name)yes|no) Matches yes pattern if the group with id/name matched, the (optional) no pattern otherwise.
-*    Flag: MULTILINE
 
 
 Some of the functions in this module takes flags as optional parameters:

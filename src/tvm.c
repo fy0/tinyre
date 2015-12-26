@@ -476,19 +476,20 @@ int vm_step(VMState* vms) {
         ret = do_ins_save_snap(vms);
     } else if (cur_ins == ins_match_start) {
         // ^
-        if (vms->snap->str_pos != vms->input_str) {
-            ret = try_backtracking(vms);
-        } else {
+        // Tip for multiline: \n is newline, \r is nothing, tested.
+        if (vms->snap->str_pos == vms->input_str || ((vms->flag & FLAG_MULTILINE) && (*(vms->snap->str_pos - 1) == '\n'))) {
             vms->snap->codes += 1;
             ret = 1;
+        } else {
+            ret = try_backtracking(vms);
         }
     } else if (cur_ins == ins_match_end) {
         // $
-        if (vms->snap->chrcode != 0) {
-            ret = try_backtracking(vms);
-        } else {
+        if (vms->snap->chrcode == 0 || ((vms->flag & FLAG_MULTILINE) && (vms->snap->chrcode == '\n'))) {
             vms->snap->codes += 1;
             ret = 1;
+        } else {
+            ret = try_backtracking(vms);
         }
     }
 
