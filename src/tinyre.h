@@ -16,7 +16,7 @@ enum tre_Flag {
     FLAG_DOTALL = 16,
     //FLAG_UNICODE = 32,
     //FLAG_VERBOSE = 64,
-    //FLAG_DEBUG = 128,
+    //FLAGTRE_DEBUG = 128,
 
     //FLAG_T = 1,
     FLAG_I = 2,
@@ -58,7 +58,7 @@ typedef struct tre_Match {
 
 /* 表达式编译和匹配 */
 tre_Pattern* tre_compile(char* s, int flag);
-tre_Match* tre_match(tre_Pattern* tp, const char* str);
+tre_Match* tre_match(tre_Pattern* tp, const char* str, int backtrack_limit);
 
 /* 释放内存占用 */
 //void tre_free_pattern(tre_Pattern *ptn);

@@ -12,7 +12,13 @@ Plan to be compatible with "Secret Labs' Regular Expression Engine"(SRE for pyth
 
 * **no octal number**  
   \\1 means group 1, \\1-100 means group n, \\01 match \\1, \\07 match \\7, \\08 match ['\\0', '8'], \\377 match 0o377, but \\400 isn't match with 0o400 and [chr(0o40), '\\0']!  
-  What the hell ... I choose go die! No octal number support!  
+  What the hell ... I choose go die! Go away octal number!  
+
+* **custom maximum number of backtracking**  
+  An evil regex: **'a?'\*n+'a'\*n** against **'a'\*n**  
+  For example: **'a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?aaaaaaaaaaaaaaaaaaaaaaaaa'** matches **'aaaaaaaaaaaaaaaaaaaaaaaaa'**  
+  It will takes a long time because of too many times of backtracking. Perl/Python/PCRE requires over **10^15 years** to match a 29-character string.  
+  You can set a limit to backtracking times to avoid this situation, and the match will be falied.  
 
 * **more than 100 groups ...**  
   but who cares?  
@@ -67,7 +73,7 @@ tre_Pattern* pattern;
 tre_Match* match;
 
 pattern = tre_compile("^(bb)*a", 0);
-match = tre_match(pattern, "bbbbabc");
+match = tre_match(pattern, "bbbbabc", 0);
 
 // Group  0: bbbba
 // Group  1: bb

@@ -34,10 +34,10 @@ static void putcode(int code) {
     }
 }
 
-#ifdef _DEBUG
+#ifdef TRE_DEBUG
 #define TRE_DEBUG_PRINT(str) printf_u8(str)
 #else
-#define TRE_DEBUG_PRINT(expression) ;
+#define TRE_DEBUG_PRINT(expression)
 #endif
 
 #endif

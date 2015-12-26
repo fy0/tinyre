@@ -72,7 +72,7 @@ _INLINE static
 int do_ins_cmp(VMState* vms) {
     int char_code = *(vms->snap->codes + 1);
 
-#ifdef _DEBUG
+#ifdef TRE_DEBUG
     printf_u8("INS_CMP ");
     putcode(char_code);
     printf(" ");
@@ -208,7 +208,7 @@ int do_ins_cmp_group(VMState* vms) {
     int index = *(vms->snap->codes + 1);
     MatchGroup* g = vms->groups + index;
 
-#if _DEBUG
+#if TRE_DEBUG
     printf("INS_CMP_GROUP %d\n", index);
 #endif
 
@@ -271,7 +271,7 @@ int do_ins_group_end(VMState* vms) {
     MatchGroup* g = vms->groups + index;
     VMSnap* snap_tmp;
 
-#if _DEBUG
+#if TRE_DEBUG
     printf("INS_GROUP_END %d\n", *(vms->snap->codes + 1));
 #endif
 
@@ -311,10 +311,26 @@ int do_ins_group_end(VMState* vms) {
     return (index == 0) ? -1 : 2;
 }
 
+int backtracking_length(VMState* vms) {
+    int len = 0;
+    VMSnap* snap = vms->snap->prev;
+    while (snap) {
+        len++;
+        snap = snap->prev;
+    }
+    return len;
+}
+
 _INLINE static
 int try_backtracking(VMState* vms) {
     if (vms->snap->prev) {
         bool greed;
+
+        if (vms->backtrack_limit && vms->backtrack_num >= vms->backtrack_limit) {
+            return 0;
+        }
+        vms->backtrack_num += 1;
+
         vms->snap = vms->snap->prev;
         greed = vms->snap->mr.enable == 1 ? true : false;
 
@@ -377,7 +393,6 @@ int do_ins_save_snap(VMState* vms) {
     // group start + offset + length of group_end
     vms->snap->codes = vms->groups[vms->snap->cur_group].codes + (*(vms->snap->codes + 1) / sizeof(int)) + 2;
     save_snap(vms);
-    printf("%d %d\n", vms->snap->cur_group, vms->snap->run_cache->cur_group);
     vms->snap->codes = tmp + 2;
     return 2;
 }
@@ -492,7 +507,7 @@ int* u8str_to_u32str(const char* p) {
     return ret;
 }
 
-VMState* vm_init(tre_Pattern* groups_info, const char* input_str) {
+VMState* vm_init(tre_Pattern* groups_info, const char* input_str, int backtrack_limit) {
     VMState* vms = _new(VMState, 1);
     vms->raw_input_str = input_str;
     vms->input_str = u8str_to_u32str(input_str);
@@ -506,6 +521,8 @@ VMState* vm_init(tre_Pattern* groups_info, const char* input_str) {
         vms->input_cache = NULL;
     }
     vms->flag = groups_info->flag;
+    vms->backtrack_num = 0;
+    vms->backtrack_limit = backtrack_limit;
 
     // init match results of groups
     vms->match_results = _new(GroupResultTemp, groups_info->num);

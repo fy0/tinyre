@@ -50,7 +50,7 @@ tre_Pattern* tre_compile(char* s, int flag) {
     ret = tre_lexer(s, &tki);
 
     if (ret >= 0) {
-#ifdef _DEBUG
+#ifdef TRE_DEBUG
         debug_token_print(tki->tokens, ret);
 #endif
     }
@@ -75,9 +75,9 @@ tre_Pattern* tre_compile(char* s, int flag) {
     return NULL;
 }
 
-tre_Match* tre_match(tre_Pattern* tp, const char* str)
+tre_Match* tre_match(tre_Pattern* tp, const char* str, int backtrack_limit)
 {
-    VMState* vms = vm_init(tp, str);
+    VMState* vms = vm_init(tp, str, backtrack_limit);
     tre_GroupResult* groups = vm_exec(vms);
     tre_Match* match = _new(tre_Match, 1);
     match->groupnum = vms->group_num;
@@ -133,12 +133,12 @@ int main(int argc,char* argv[])
     //pattern = tre_compile("\\U0000000B", FLAG_NONE); // success
     //pattern = tre_compile("a{}", FLAG_NONE); // a{}
     //pattern = tre_compile("a{0,", FLAG_NONE); // a{0,
-    pattern = tre_compile("+[\\uFFFF-\\uAAAA]", FLAG_NONE); //
+    pattern = tre_compile("a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?aaaaaaaaaaaaaaaaaaaaaaaaa", FLAG_NONE); //
     if (pattern) {
-        match = tre_match(pattern, "a{0,");
+        match = tre_match(pattern, "aaaaaaaaaaaaaaaaaaaaaaaaa", 5000);
 
-        putchar('\n');
         if (match->groups) {
+            putchar('\n');
             for (i = 0; i < match->groupnum; i++) {
                 printf_u8("Group %2d: ", i);
                 if (match->groups[i].name) printf_u8("(%s) ", match->groups[i].name);

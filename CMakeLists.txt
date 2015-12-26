@@ -28,12 +28,12 @@ endmacro(source_group_by_dir)
 INCLUDE_DIRECTORIES()
 
 set(CMAKE_CXX_FLAGS_RELEASE "/MT")
-set(CMAKE_CXX_FLAGS_DEBUG "/MTd")
+set(CMAKE_CXX_FLAGSTRE_DEBUG "/MTd")
 
 add_definitions(-DUNICODE -D_UNICODE -DDEMO)
 
 IF(DEBUG_mode)
-    add_definitions(-D_DEBUG)
+    add_definitions(-DTRE_DEBUG)
 ENDIF()
 
 file(GLOB_RECURSE project_headers src/*.h)

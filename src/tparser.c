@@ -458,7 +458,7 @@ tre_Pattern* tre_parser(TokenInfo* tki, tre_Token** last_token) {
 
     if (tokens) {
         group_sort(m_start);
-#ifdef _DEBUG
+#ifdef TRE_DEBUG
         debug_ins_list_print(m_start);
 #endif
         ret = compact_group(m_start);

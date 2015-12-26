@@ -65,12 +65,14 @@ typedef struct VMState {
     MatchGroup* groups;
     int flag;
 
+    int backtrack_num;
+    int backtrack_limit;
     int** input_cache;
     GroupResultTemp* match_results;
     VMSnap* snap;
 } VMState;
 
-VMState* vm_init(tre_Pattern* groups, const char* input_str);
+VMState* vm_init(tre_Pattern* groups, const char* input_str, int backtrack_limit);
 
 int vm_step(VMState* vms);
 void vm_free(VMState* vms);
