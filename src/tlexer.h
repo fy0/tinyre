@@ -44,5 +44,8 @@ void token_info_free(TokenInfo* tki);
 #define ERR_LEXER_UNEXPECTED_END_OF_PATTERN     -4
 #define ERR_LEXER_UNKNOW_SPECIFIER              -5
 #define ERR_LEXER_BAD_GROUP_NAME                -6
+#define ERR_LEXER_UNICODE_ESCAPE                -7
+#define ERR_LEXER_UNICODE6_ESCAPE               -8
+#define ERR_LEXER_HEX_ESCAPE                    -9
 
 #endif

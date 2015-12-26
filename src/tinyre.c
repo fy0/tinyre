@@ -44,6 +44,15 @@ tre_Pattern* tre_compile(char* s, int flag) {
     } else if (ret == ERR_LEXER_BAD_GROUP_NAME) {
         printf_u8("input error: bad group name\n");
         exit(-1);
+    } else if (ret == ERR_LEXER_UNICODE_ESCAPE) {
+        printf_u8("input error: unicode escape failed, requires 4 chars(\\u0000)\n");
+        exit(-1);
+    } else if (ret == ERR_LEXER_UNICODE6_ESCAPE) {
+        printf_u8("input error: unicode escape failed, requires 8 chars(\\u00000000)\n");
+        exit(-1);
+    } else if (ret == ERR_LEXER_HEX_ESCAPE) {
+        printf_u8("input error: hex escape failed, requires 2 chars(\\x00)\n");
+        exit(-1);
     }
 
     tre_Pattern* groups = tre_parser(tki, &last_token);
@@ -107,9 +116,18 @@ int main(int argc,char* argv[])
     //pattern = tre_compile("[----a-z123,4d-e]+", FLAG_NONE); //4,1-f
     //pattern = tre_compile("[\\S-z]+", FLAG_NONE); //a
     //pattern = tre_compile("[\\r-A]+", FLAG_IGNORECASE); //[ //not match
-    pattern = tre_compile("(.a+)[\\64]\\1", FLAG_NONE);
+    //pattern = tre_compile("(.a+)[\\64]\\1", FLAG_NONE); // aaa@aaaa
+    //pattern = tre_compile("\\u5B25A", FLAG_NONE); // 嬥A
+    //pattern = tre_compile("\\U00005b25A", FLAG_NONE); // 嬥A
+    //pattern = tre_compile("\\x61b", FLAG_NONE); // ab
+    //pattern = tre_compile("\\uAaAA", FLAG_NONE); // success
+    //pattern = tre_compile("\\uAaA", FLAG_NONE); // failed
+    //pattern = tre_compile("\\x0a", FLAG_NONE); // success
+    //pattern = tre_compile("\\xa", FLAG_NONE); // falied
+    //pattern = tre_compile("\\U0000000B", FLAG_NONE); // success
+    pattern = tre_compile("\\U000000B", FLAG_NONE); // falied
     if (pattern) {
-        match = tre_match(pattern, "aaa@aaaa");
+        match = tre_match(pattern, "a");
 
         putchar('\n');
         if (match->groups) {

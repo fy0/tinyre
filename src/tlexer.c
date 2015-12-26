@@ -47,6 +47,57 @@ int try_get_int(int code, const char **pp) {
 }
 
 _INLINE static
+int hex(int code)
+{
+    if (code >= '0' && code <= '9')
+        return code - '0';
+    if (code >= 'A' && code <= 'F')
+        return code - 'A' + 10;
+    if (code >= 'a' && code <= 'f')
+        return code - 'a' + 10;
+    return -1;
+}
+
+_INLINE static
+int try_get_hex(int code, const char **pp, int len) {
+    int i, ret;
+    const char *p = *pp;
+    const char *start;
+
+    if (hex(code) != -1) {
+        i = 1;
+        ret = 0;
+        start = p;
+        
+        while (true) {
+            p = utf8_decode(p, &code);
+            if (hex(code) == -1) break;
+            else i++;
+            if (i == len) {
+                p = utf8_decode(p, &code);
+                break;
+            }
+        }
+
+        if (len != -1) {
+            if (i != len) {
+                // unicode or hex escape error
+                return -1;
+            }
+        }
+
+        for (i = p - start - 1; i >= 0; i--) {
+            ret += hex(*(p - i - 2)) * (int)pow(16, i);
+        }
+
+        *pp = p - 1;
+        return ret;
+    }
+
+    return -1;
+}
+
+_INLINE static
 int try_get_escape(int code) {
     const char other_tokens[] = "abfnrtv";
     const int other_codes[] = { 7, 8, 12, 10, 13, 9, 11 };
@@ -57,7 +108,7 @@ int try_get_escape(int code) {
 }
 
 _INLINE static
-void token_char_accept(int code, const char* s_end, const char** pp, tre_Token** ppt, bool use_back_ref) {
+int token_char_accept(int code, const char* s_end, const char** pp, tre_Token** ppt, bool use_back_ref) {
     const char* p = *pp;
     tre_Token* pt = *ppt;
     
@@ -72,6 +123,29 @@ void token_char_accept(int code, const char* s_end, const char** pp, tre_Token**
             if (is_spe_char(code)) {
                 pt->code = code;
                 (pt++)->token = TK_SPE_CHAR;
+            // code for hex/unicode escape
+            } else if (code == 'x') {
+                int num;
+                p = utf8_decode(p, &code);
+                num = try_get_hex(code, &p, 2);
+                if (num == -1) return ERR_LEXER_HEX_ESCAPE;
+                pt->code = num;
+                (pt++)->token = TK_CHAR;
+            } else if (code == 'u') {
+                int num;
+                p = utf8_decode(p, &code);
+                num = try_get_hex(code, &p, 4);
+                if (num == -1) return ERR_LEXER_UNICODE_ESCAPE;
+                pt->code = num;
+                (pt++)->token = TK_CHAR;
+            } else if (code == 'U') {
+                int num;
+                p = utf8_decode(p, &code);
+                num = try_get_hex(code, &p, 8); // unicode 6.0 \U0000000A
+                if (num == -1) return ERR_LEXER_UNICODE6_ESCAPE;
+                pt->code = num;
+                (pt++)->token = TK_CHAR;
+            // end
             } else {
                 int num = try_get_int(code, &p);
                 if (num != -1) {
@@ -103,6 +177,7 @@ void token_char_accept(int code, const char* s_end, const char** pp, tre_Token**
 
     *pp = p;
     *ppt = pt;
+    return 0;
 }
 
 _INLINE static
@@ -128,7 +203,7 @@ int tre_lexer(char* s, TokenInfo** ptki) {
 
     int state = 0; // 0 NOMRAL | 1 [...] | 2 {...} | 3 (?...)
 
-    for (const char* p = utf8_decode(s, &code); p != s_end; ) {
+    for (const char* p = utf8_decode(s, &code); p < s_end; ) {
         if (state == 0) {
             if (token_check(code)) {
                 pt->code = 0;
@@ -138,13 +213,15 @@ int tre_lexer(char* s, TokenInfo** ptki) {
                 else if ((pt - 1)->token == '{') state = 2;
                 else if ((pt - 1)->token == '(') state = 3;
             } else {
-                token_char_accept(code, s_end, &p, &pt, true);
+                int ret = token_char_accept(code, s_end, &p, &pt, true);
+                if (ret) return ret;
             }
         } else if (state == 1) {
             if ((pt - 1)->token == '[' && code == '^')
                 (pt - 1)->code = 1;
             else {
-                token_char_accept(code, s_end, &p, &pt, false);
+                int ret = token_char_accept(code, s_end, &p, &pt, false);
+                if (ret) return ret;
 
                 if ((pt - 1)->token == TK_CHAR) {
                     if ((pt-1)->code == ']' && *p != '-') {

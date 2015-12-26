@@ -8,7 +8,7 @@ Plan to be compatible with "Secret Labs' Regular Expression Engine"(SRE for pyth
 
 **Features**:  
 * **utf-8 support**  
-  Long live the unicode!  
+  Cheers for unicode!  
 
 * **no octal number**  
   \\1 means group 1, \\1-100 means group n, \\01 match \\1, \\07 match \\7, \\08 match ['\\0', '8'], \\377 match 0o377, but \\400 isn't match with 0o400 and [chr(0o40), '\\0']!  
