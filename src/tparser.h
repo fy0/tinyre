@@ -31,9 +31,15 @@ typedef struct ParserMatchGroup {
 tre_Pattern* compact_group(ParserMatchGroup* parser_groups);
 tre_Pattern* tre_parser(TokenInfo* _tki, tre_Token** last_token);
 
+int tre_last_parser_error();
+
 // look-behind requires fixed-width pattern
 #define ERR_PARSER_REQUIRES_FIXED_WIDTH_PATTERN   -11
 // bad character range
 #define ERR_PARSER_BAD_CHARACTER_RANGE            -12
+// nothing to repeat
+#define ERR_PARSER_NOTHING_TO_REPEAT              -13
+// impossible token
+#define ERR_PARSER_IMPOSSIBLE_TOKEN               -14
 
 #endif

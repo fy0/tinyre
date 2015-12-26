@@ -254,6 +254,7 @@ int tre_lexer(char* s, TokenInfo** ptki) {
                 p = utf8_decode(p, &code);
                 start = p;
             } else if ((char)code == '}') {
+                if (*(p - 2) == '{') goto __bad_token;
                 rlimit = llimit;
                 goto __write_code;
             } else {

@@ -19,6 +19,11 @@ TokenGroupName* tk_group_names;
 bool is_count_width = false;
 int match_width;
 
+int tre_last_parser_error()
+{
+    return error_code;
+}
+
 tre_Token* parser_char_set(tre_Token* tk);
 tre_Token* parser_char(tre_Token* tk);
 tre_Token* parser_block(tre_Token* tk);
@@ -249,6 +254,7 @@ tre_Token* parser_block(tre_Token* tk) {
                 rlimit = (tk + 1)->code;
                 need_checkpoint = true;
             } else {
+                error_code = ERR_PARSER_IMPOSSIBLE_TOKEN;
                 return NULL;
             }
         }
@@ -289,6 +295,10 @@ tre_Token* parser_block(tre_Token* tk) {
         // END
     } else {
         ret = parser_other_tokens(tk);
+    }
+
+    if (!ret) {
+        if (!error_code) error_code = ERR_PARSER_NOTHING_TO_REPEAT;
     }
     
     return ret;
@@ -386,7 +396,6 @@ tre_Token* parser_group(tre_Token* tk) {
 
 tre_Token* parser_blocks(tre_Token* tk) {
     tre_Token* ret;
-    //paser_accept(tk = parser_block(tk));
     ret = tk;
     while ((ret = parser_block(ret))) tk = ret;
     return tk;

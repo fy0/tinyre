@@ -13,15 +13,39 @@
 #include "tvm.h"
 #include "tdebug.h"
 
-void tre_err(const char* s) {
-    printf_u8("%s\n", s);
-    exit(-1);
+void tre_err(int err_code) {
+    if (err_code == ERR_LEXER_UNBALANCED_PARENTHESIS) {
+        printf_u8("input error: unbalanced parenthesis.\n");
+    } else if (err_code == ERR_LEXER_UNEXPECTED_END_OF_PATTERN) {
+        printf_u8("input error: unexpected end of pattern.\n");
+    } else if (err_code == ERR_LEXER_UNKNOW_SPECIFIER) {
+        printf_u8("input error: unknown specifier.\n");
+    } else if (err_code == ERR_LEXER_BAD_GROUP_NAME) {
+        printf_u8("input error: bad group name\n");
+    } else if (err_code == ERR_LEXER_UNICODE_ESCAPE) {
+        printf_u8("input error: unicode escape failed, requires 4 chars(\\u0000).\n");
+    } else if (err_code == ERR_LEXER_UNICODE6_ESCAPE) {
+        printf_u8("input error: unicode escape failed, requires 8 chars(\\u00000000).\n");
+    } else if (err_code == ERR_LEXER_HEX_ESCAPE) {
+        printf_u8("input error: hex escape failed, requires 2 chars(\\x00).\n");
+    } else if (err_code == ERR_PARSER_REQUIRES_FIXED_WIDTH_PATTERN) {
+        printf_u8("input error: look-behind requires fixed-width pattern\n");
+    } else if (err_code == ERR_PARSER_BAD_CHARACTER_RANGE) {
+        printf_u8("input error: bad character range\n");
+    } else if (err_code == ERR_PARSER_NOTHING_TO_REPEAT) {
+        printf_u8("input error: nothing to repeat\n");
+    } else if (err_code == ERR_PARSER_IMPOSSIBLE_TOKEN) {
+        printf_u8("input error: impossible token\n");
+    } else {
+        printf_u8("parsering falied!!!\n");
+    }
 }
 
 tre_Pattern* tre_compile(char* s, int flag) {
     int ret;
     tre_Token *last_token;
     TokenInfo* tki;
+    tre_Pattern* groups;
 
     ret = tre_lexer(s, &tki);
 
@@ -29,37 +53,19 @@ tre_Pattern* tre_compile(char* s, int flag) {
 #ifdef _DEBUG
         debug_token_print(tki->tokens, ret);
 #endif
-    } else if (ret == -1) {
-        printf_u8("input error: characters inside {...} invalid.\n");
-        exit(-1);
-    } else if (ret == ERR_LEXER_UNBALANCED_PARENTHESIS) {
-        printf_u8("input error: unbalanced parenthesis\n");
-        exit(-1);
-    } else if (ret == ERR_LEXER_UNEXPECTED_END_OF_PATTERN) {
-        printf_u8("input error: unexpected end of pattern\n");
-        exit(-1);        
-    } else if (ret == ERR_LEXER_UNKNOW_SPECIFIER) {
-        printf_u8("input error: unknown specifier\n");
-        exit(-1);
-    } else if (ret == ERR_LEXER_BAD_GROUP_NAME) {
-        printf_u8("input error: bad group name\n");
-        exit(-1);
-    } else if (ret == ERR_LEXER_UNICODE_ESCAPE) {
-        printf_u8("input error: unicode escape failed, requires 4 chars(\\u0000)\n");
-        exit(-1);
-    } else if (ret == ERR_LEXER_UNICODE6_ESCAPE) {
-        printf_u8("input error: unicode escape failed, requires 8 chars(\\u00000000)\n");
-        exit(-1);
-    } else if (ret == ERR_LEXER_HEX_ESCAPE) {
-        printf_u8("input error: hex escape failed, requires 2 chars(\\x00)\n");
-        exit(-1);
     }
 
-    tre_Pattern* groups = tre_parser(tki, &last_token);
+    if (ret < 0) {
+        tre_err(ret);
+        return NULL;
+    }
+
+    groups = tre_parser(tki, &last_token);
 
     if (last_token == NULL || last_token < tki->tokens + ret) {
         token_info_free(tki);
-        printf_u8("parsering falied!!!\n");
+        ret = tre_last_parser_error();
+        tre_err(ret);
     } else {
         groups->flag = flag | tki->extra_flag;
         token_info_free(tki);
@@ -125,9 +131,11 @@ int main(int argc,char* argv[])
     //pattern = tre_compile("\\x0a", FLAG_NONE); // success
     //pattern = tre_compile("\\xa", FLAG_NONE); // falied
     //pattern = tre_compile("\\U0000000B", FLAG_NONE); // success
-    pattern = tre_compile("\\U000000B", FLAG_NONE); // falied
+    //pattern = tre_compile("a{}", FLAG_NONE); // a{}
+    //pattern = tre_compile("a{0,", FLAG_NONE); // a{0,
+    pattern = tre_compile("+[\\uFFFF-\\uAAAA]", FLAG_NONE); //
     if (pattern) {
-        match = tre_match(pattern, "a");
+        match = tre_match(pattern, "a{0,");
 
         putchar('\n');
         if (match->groups) {
