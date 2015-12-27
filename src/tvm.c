@@ -183,13 +183,14 @@ int do_ins_cmp_backref(VMState* vms) {
         int *tail = vms->match_results[index].tail;
         int *p2 = vms->snap->str_pos;
 
-        while (p != tail) {
+        while (p < tail) {
             if (!char_cmp(*p, *p2, vms->flag)) return 0;
             p++;
             p2++;
         }
 
-        vms->snap->str_pos = p2;
+        // 匹配完成后将被+1，故先减去
+        vms->snap->str_pos = p2-1;
         return 2;
     }
 

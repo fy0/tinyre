@@ -317,10 +317,36 @@ tre_Token* parser_group(tre_Token* tk) {
     TRE_DEBUG_PRINT("GROUP\n");
 
     paser_accept(tk->token == '(');
-    if (tk_group_names && tk_group_names->tk == tk)
+    if (tk_group_names && tk_group_names->tk == tk) {
         name = tk_group_names->name;
+    }
 
     group_type = tk->code;
+
+    // code for back reference (?P=), backref group is not real group
+    if (group_type == GT_BACKREF) {
+        int i = 1;
+        for (ParserMatchGroup* pg = m_start->next; pg; pg = pg->next) {
+            
+            //if (pg->name) printf("%s %s %d %d\n", pg->name, name, memcmp(name, pg->name, strlen(name)));
+            if (pg->name && (memcmp(name, pg->name, strlen(name)) == 0)) {
+                m_cur->codes->ins = ins_cmp_backref;
+                m_cur->codes->data = _new(int, 1);
+                m_cur->codes->len = sizeof(int) * 1;
+                *(int*)m_cur->codes->data = i;
+                m_cur->codes->next = _new(INS_List, 1);
+                m_cur->codes = m_cur->codes->next;
+                m_cur->codes->next = NULL;
+                tk_group_names = tk_group_names->next;
+                return tk + 1;
+            }
+            i++;
+        }
+        error_code = ERR_PARSER_UNKNOWN_GROUP_NAME;
+        return NULL;
+    }
+    // end
+
     if (group_type == GT_NORMAL) {
         gindex = 1;
         avaliable_group++;
@@ -361,7 +387,7 @@ tre_Token* parser_group(tre_Token* tk) {
     m_cur->group_type = group_type;
     m_cur->codes->next = NULL;
 
-    if (tk_group_names) 
+    if (name) 
         tk_group_names = tk_group_names->next;
 
     ret = tk;

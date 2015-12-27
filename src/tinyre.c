@@ -36,6 +36,8 @@ void tre_err(int err_code) {
         printf_u8("input error: nothing to repeat\n");
     } else if (err_code == ERR_PARSER_IMPOSSIBLE_TOKEN) {
         printf_u8("input error: impossible token\n");
+    } else if (err_code == ERR_PARSER_UNKNOWN_GROUP_NAME) {
+        printf_u8("input error: unknow group name\n");
     } else {
         printf_u8("parsering falied!!!\n");
     }
@@ -137,9 +139,10 @@ int main(int argc,char* argv[])
     //pattern = tre_compile("\\d$", FLAG_MULTILINE); // 1\na matched
     //pattern = tre_compile(".\\n^\\d", FLAG_NONE); // a\n1 failed
     //pattern = tre_compile(".\\n^\\d", FLAG_MULTILINE); // a\n1 matched
-    pattern = tre_compile(".\\n^\\d", FLAG_NONE); // a\n1 failed
+    //pattern = tre_compile(".\\n^\\d", FLAG_NONE); // a\n1 failed
+    pattern = tre_compile("()()(?P<b>1)(?P<a>2)(?P<c>4)()(?P=a)cc(?P<e>333)", FLAG_NONE); // 1242cc333
     if (pattern) {
-        match = tre_match(pattern, "a\n1", 0);
+        match = tre_match(pattern, "1242cc333", 0);
 
         if (match->groups) {
             putchar('\n');

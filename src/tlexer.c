@@ -345,13 +345,48 @@ int tre_lexer(char* s, TokenInfo** ptki) {
 
                     group_name = _new(TokenGroupName, 1);
                     group_name->name = name;
-                    group_name->tk = pt-1;
+                    group_name->tk = pt - 1;
                     group_name->next = NULL;
 
                     if (!last_group_name) group_names = last_group_name = group_name;
-                    else last_group_name->next = group_name;
+                    else {
+                        last_group_name->next = group_name;
+                        last_group_name = last_group_name->next;
+                    }
 
                     max_normal_group_num++;
+                // code for back reference (?P=)
+                } else if (code == '=') {
+                    char* name;
+                    const char* start = p;
+                    TokenGroupName* group_name;
+
+                    p = utf8_decode(p, &code);
+                    while (true) {
+                        if (!(isalnum(code) || code == '_')) break;
+                        p = utf8_decode(p, &code);
+                    }
+
+                    if (code != ')') {
+                        return ERR_LEXER_BAD_GROUP_NAME_IN_BACKREF;
+                    }
+
+                    name = _new(char, p - start);
+                    memcpy(name, start, p - start - 1);
+                    name[p - start - 1] = '\0';
+
+                    group_name = _new(TokenGroupName, 1);
+                    group_name->name = name;
+                    group_name->tk = pt - 1;
+                    group_name->next = NULL;
+
+                    if (!last_group_name) group_names = last_group_name = group_name;
+                    else {
+                        last_group_name->next = group_name;
+                        last_group_name = last_group_name->next;
+                    }
+                    (pt - 1)->code = GT_BACKREF;
+                // end
                 } else {
                     return ERR_LEXER_UNKNOW_SPECIFIER;
                 }

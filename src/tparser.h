@@ -41,5 +41,7 @@ int tre_last_parser_error();
 #define ERR_PARSER_NOTHING_TO_REPEAT              -13
 // impossible token
 #define ERR_PARSER_IMPOSSIBLE_TOKEN               -14
+// unknow group name
+#define ERR_PARSER_UNKNOWN_GROUP_NAME             -15
 
 #endif

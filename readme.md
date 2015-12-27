@@ -44,6 +44,7 @@ Plan to be compatible with "Secret Labs' Regular Expression Engine"(SRE for pyth
 *    (?ims)   Set the I, M or S flag for the RE (see below).  
 *    (?:...)  Non-grouping version of regular parentheses.  
 *    (?P<name>...) The substring matched by the group is accessible by name.  
+*    (?P=name)     Matches the text matched earlier by the group named name.
 *    (?#...)  A comment; ignored.  
 *    (?=...)  Matches if ... matches next, but doesn't consume the string.  
 *    (?!...)  Matches if ... doesn't match next.  
@@ -56,7 +57,6 @@ Plan to be compatible with "Secret Labs' Regular Expression Engine"(SRE for pyth
 
 
 **Unsupported**:
-*    (?P=name)     Matches the text matched earlier by the group named name.
 *    (?(id/name)yes|no) Matches yes pattern if the group with id/name matched, the (optional) no pattern otherwise.
 
 

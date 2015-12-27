@@ -17,6 +17,7 @@ enum GROUP_TYPE {
     GT_IF_NOT_MATCH,
     GT_IF_PRECEDED_BY,
     GT_IF_NOT_PRECEDED_BY,
+    GT_BACKREF,
 };
 
 typedef struct tre_Token {
@@ -47,5 +48,6 @@ void token_info_free(TokenInfo* tki);
 #define ERR_LEXER_UNICODE_ESCAPE                -7
 #define ERR_LEXER_UNICODE6_ESCAPE               -8
 #define ERR_LEXER_HEX_ESCAPE                    -9
+#define ERR_LEXER_BAD_GROUP_NAME_IN_BACKREF     -10
 
 #endif
