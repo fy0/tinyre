@@ -154,10 +154,11 @@ int main(int argc,char* argv[])
     //pattern = tre_compile("(?P<a>1)?(?(1)3|2)", FLAG_NONE); // 231
     //pattern = tre_compile("(?P<a>1)?(?(2)3|2)", FLAG_NONE); // invalid group index in conditional backref
     //pattern = tre_compile("(?P<a>1)?(?(b)3|2)", FLAG_NONE); // unknow group name
-    pattern = tre_compile("(?P<a>1)?(?P<a>)", FLAG_NONE); // redefinition of group name
+    //pattern = tre_compile("(?P<a>1)?(?P<a>)", FLAG_NONE); // redefinition of group name
+    pattern = tre_compile("(?P<a>a)b(c)de(fc)?[fgh]i", FLAG_NONE);
 
     if (pattern) {
-        match = tre_match(pattern, "231", 0);
+        match = tre_match(pattern, "abcdehi", 0);
 
         if (match->groups) {
             putchar('\n');

@@ -18,4 +18,6 @@ bak/
 
 # Others
 .gitignore~
+*.[ch]~
 *.un~
+*.txt~

@@ -13,12 +13,11 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#if _MSC_VER >= 1800
 #include <stdbool.h>
-#endif
 #include <string.h>
 #include <ctype.h>
 #include <stdarg.h>
+#include <stdint.h>
 #include <math.h>
 
 #define _new(__obj_type, __size) (__obj_type*)malloc((sizeof(__obj_type)*(__size)))

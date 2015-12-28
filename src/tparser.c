@@ -547,7 +547,7 @@ tre_Pattern* compact_group(ParserMatchGroup* parser_groups) {
     MatchGroup* groups;
     ParserMatchGroup *pg, *pg_tmp;
     INS_List *code, *code_tmp;
-    OR_List *or_lst;
+    OR_List *or_lst, *or_tmp;
     tre_Pattern* ret = _new(tre_Pattern, 1);
 
     for (pg = parser_groups; pg; pg = pg->next) gnum++;
@@ -584,7 +584,9 @@ tre_Pattern* compact_group(ParserMatchGroup* parser_groups) {
                     }
                     *data = code_lens;
                     data -= 3;
+                    or_tmp = or_lst;
                     or_lst = or_lst->next;
+                    //free(or_tmp);
                 }
                 if (!code->next) break;
                 code_lens += (code->len + sizeof(int));

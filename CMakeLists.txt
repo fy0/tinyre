@@ -6,8 +6,10 @@ project (tinyre)
 cmake_policy(SET CMP0015 OLD)
 
 #set(CMAKE_BUILD_TYPE Debug)
-set(CMAKE_GENERATOR_TOOLSET "v120_xp" CACHE STRING "Platform Toolset" FORCE) 
-set(CMAKE_VS_PLATFORM_TOOLSET "v120_xp" CACHE STRING "Platform Toolset" FORCE)
+if (MSVC)
+    set(CMAKE_GENERATOR_TOOLSET "v120_xp" CACHE STRING "Platform Toolset" FORCE) 
+    set(CMAKE_VS_PLATFORM_TOOLSET "v120_xp" CACHE STRING "Platform Toolset" FORCE)
+endif(MSVC)
 
 macro(source_group_by_dir source_files)
     if(MSVC)
@@ -27,8 +29,12 @@ endmacro(source_group_by_dir)
 
 INCLUDE_DIRECTORIES()
 
-set(CMAKE_CXX_FLAGS_RELEASE "/MT")
-set(CMAKE_CXX_FLAGSTRE_DEBUG "/MTd")
+if (MSVC)
+    set(CMAKE_CXX_FLAGS_DEBUG "/MTd")
+    set(CMAKE_CXX_FLAGS_RELEASE "/MT")
+else(MSVC)
+    set(CMAKE_C_FLAGS "-std=c99")
+endif(MSVC)
 
 add_definitions(-DUNICODE -D_UNICODE -DDEMO)
 
@@ -43,4 +49,9 @@ set (SRC_LIST ${project_headers} ${project_cpps})
 source_group_by_dir(SRC_LIST)
 
 add_executable(tinyre ${SRC_LIST})
-#add_library(doge_engine ${SRC_LIST})
+#add_library(tinyre ${SRC_LIST})
+
+if (NOT MSVC)
+    target_link_libraries(tinyre m)
+endif(MSVC)
+

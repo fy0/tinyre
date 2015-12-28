@@ -2,6 +2,7 @@
 #include "platform.h"
 #include <stdio.h>
 #include <locale.h>
+#include <stdarg.h>
 
 
 #ifdef PLATFORM_WINDOWS

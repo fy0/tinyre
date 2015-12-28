@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 #ifdef _MSC_VER
 #include <Windows.h>
@@ -66,7 +67,7 @@ char* ucs4_to_utf8(int code) {
     int i, ilen;
 
     // 根据UCS4编码范围确定对应的UTF-8编码字节数
-    ilen = sizeof(adwCodeUp) / sizeof(DWORD);
+    ilen = sizeof(adwCodeUp) / sizeof(uint32_t);
     for(i = 0; i < ilen; i++) {
         if( code < adwCodeUp[i] ) break;
     }
