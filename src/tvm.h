@@ -14,6 +14,7 @@
 #define ins_check_point           20
 #define ins_check_point_no_greed  21
 #define ins_save_snap             22
+#define ins_jmp                   23
 
 #define ins_match_start           30
 #define ins_match_end             31

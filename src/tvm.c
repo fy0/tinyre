@@ -2,6 +2,7 @@
 #include "tutils.h"
 #include "tvm.h"
 #include "tlexer.h"
+#include "tdebug.h"
 
 _INLINE static
 VMSnap* snap_dup(VMSnap* src) {
@@ -48,8 +49,8 @@ int jump_one_cmp(VMState* vms) {
     int num;
     int ins = *vms->snap->codes;
 
-    if (ins >= 1 && ins <= 5) {
-        if (ins >= 3 && ins <= 4) {
+    if (ins >= ins_cmp && ins <= ins_cmp_group) {
+        if (ins >= ins_cmp_multi && ins <= ins_ncmp_multi) {
             num = *(vms->snap->codes + 1);
             vms->snap->codes += (num * 3 + 2);
         } else {
@@ -204,12 +205,20 @@ void save_snap(VMState* vms) {
 }
 
 _INLINE static
+int do_ins_jmp(VMState* vms) {
+    int offset = *(vms->snap->codes + 1);
+    TRE_DEBUG_PRINT("INS_JMP\n");
+    vms->snap->codes += offset / sizeof(int) + 2;
+    return 1;
+}
+
+_INLINE static
 int do_ins_cmp_group(VMState* vms) {
     RunCache *rc;
     int index = *(vms->snap->codes + 1);
     MatchGroup* g = vms->groups + index;
 
-#if TRE_DEBUG
+#ifdef TRE_DEBUG
     printf("INS_CMP_GROUP %d\n", index);
 #endif
 
@@ -256,6 +265,14 @@ int do_ins_cmp_group(VMState* vms) {
     vms->snap->mr.enable = 0;
     vms->snap->cur_group = index;
 
+    // code for conditional backref
+    if (g->type == GT_BACKREF_CONDITIONAL) {
+        if (vms->match_results[g->extra].head && vms->match_results[g->extra].tail) {
+            vms->snap->codes += 2;
+        }
+    }
+    // end
+
     // set match result, value of head
     if (index < vms->group_num) {
         vms->match_results[index].tmp = vms->snap->str_pos;
@@ -272,7 +289,7 @@ int do_ins_group_end(VMState* vms) {
     MatchGroup* g = vms->groups + index;
     VMSnap* snap_tmp;
 
-#if TRE_DEBUG
+#ifdef TRE_DEBUG
     printf("INS_GROUP_END %d\n", *(vms->snap->codes + 1));
 #endif
 
@@ -475,6 +492,8 @@ int vm_step(VMState* vms) {
         ret = do_ins_checkpoint(vms, false);
     } else if (cur_ins == ins_save_snap) {
         ret = do_ins_save_snap(vms);
+    } else if (cur_ins == ins_jmp) {
+        ret = do_ins_jmp(vms);
     } else if (cur_ins == ins_match_start) {
         // ^
         // Tip for multiline: \n is newline, \r is nothing, tested.

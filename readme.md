@@ -1,5 +1,5 @@
 
-# tinyre ver 0.9.0 alpha
+# tinyre ver 0.9.0
 
 A tiny regex engine.  
 Plan to be compatible with "Secret Labs' Regular Expression Engine"(SRE for python).  
@@ -50,14 +50,11 @@ Plan to be compatible with "Secret Labs' Regular Expression Engine"(SRE for pyth
 *    (?!...)  Matches if ... doesn't match next.  
 *    (?<=...) Matches if preceded by ... (must be fixed length).  
 *    (?<!...) Matches if not preceded by ... (must be fixed length).  
+*    (?(id/name)yes|no) Matches yes pattern if the group with id/name matched, the (optional) no pattern otherwise.  
 *    \\d \\D \\w \\W \\s \\S  
 *    Flag: DOTALL
 *    Flag: IGNORECASE
 *    Flag: MULTILINE
-
-
-**Unsupported**:
-*    (?(id/name)yes|no) Matches yes pattern if the group with id/name matched, the (optional) no pattern otherwise.
 
 
 Some of the functions in this module takes flags as optional parameters:

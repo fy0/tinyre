@@ -188,6 +188,32 @@ int char_to_flag(int code) {
     return 0;
 }
 
+char* read_group_name(const char** pp, char end_terminal) {
+    int code;
+    const char*p = *pp;
+    char* name;
+    const char* start = p;
+
+    p = utf8_decode(p, &code);
+    if (!isalpha(code)) return NULL;
+
+    while (true) {
+        if (!(isalnum(code) || code == '_')) break;
+        p = utf8_decode(p, &code);
+    }
+
+    if (code != end_terminal) {
+        return NULL;
+    }
+
+    name = _new(char, p - start);
+    memcpy(name, start, p - start - 1);
+    name[p - start - 1] = '\0';
+
+    *pp = p;
+    return name;
+}
+
 int tre_lexer(char* s, TokenInfo** ptki) {
     int i, code;
     int extra_flag = 0;
@@ -321,27 +347,30 @@ int tre_lexer(char* s, TokenInfo** ptki) {
                 (pt - 1)->code = GT_IF_MATCH;
             } else if (code == '!') {
                 (pt - 1)->code = GT_IF_NOT_MATCH;
+            // code for conditional backref
+            } else if (code == '(') {
+                TokenGroupName* group_name;
+                char* name = read_group_name(&p, ')');
+                (pt - 1)->code = GT_BACKREF_CONDITIONAL;
+
+                group_name = _new(TokenGroupName, 1);
+                group_name->name = name;
+                group_name->tk = pt - 1;
+                group_name->next = NULL;
+
+                if (!last_group_name) group_names = last_group_name = group_name;
+                else {
+                    last_group_name->next = group_name;
+                    last_group_name = last_group_name->next;
+                }
+            // end
             } else if (code == 'P') {
                 p = utf8_decode(p, &code);
                 // group name
                 if (code == '<') {
-                    char* name;
-                    const char* start = p;
                     TokenGroupName* group_name;
-
-                    p = utf8_decode(p, &code);
-                    while (true) {
-                        if (!(isalnum(code) || code == '_')) break;
-                        p = utf8_decode(p, &code);
-                    }
-
-                    if (code != '>') {
-                        return ERR_LEXER_BAD_GROUP_NAME;
-                    }
-
-                    name = _new(char, p - start);
-                    memcpy(name, start, p - start - 1);
-                    name[p - start - 1] = '\0';
+                    char* name = read_group_name(&p, '>');
+                    if (!name) return ERR_LEXER_BAD_GROUP_NAME;
 
                     group_name = _new(TokenGroupName, 1);
                     group_name->name = name;
@@ -357,23 +386,9 @@ int tre_lexer(char* s, TokenInfo** ptki) {
                     max_normal_group_num++;
                 // code for back reference (?P=)
                 } else if (code == '=') {
-                    char* name;
-                    const char* start = p;
                     TokenGroupName* group_name;
-
-                    p = utf8_decode(p, &code);
-                    while (true) {
-                        if (!(isalnum(code) || code == '_')) break;
-                        p = utf8_decode(p, &code);
-                    }
-
-                    if (code != ')') {
-                        return ERR_LEXER_BAD_GROUP_NAME_IN_BACKREF;
-                    }
-
-                    name = _new(char, p - start);
-                    memcpy(name, start, p - start - 1);
-                    name[p - start - 1] = '\0';
+                    char* name = read_group_name(&p, ')');
+                    if (!name) return ERR_LEXER_BAD_GROUP_NAME_IN_BACKREF;
 
                     group_name = _new(TokenGroupName, 1);
                     group_name->name = name;
@@ -385,6 +400,7 @@ int tre_lexer(char* s, TokenInfo** ptki) {
                         last_group_name->next = group_name;
                         last_group_name = last_group_name->next;
                     }
+
                     (pt - 1)->code = GT_BACKREF;
                 // end
                 } else {

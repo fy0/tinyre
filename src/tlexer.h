@@ -18,6 +18,7 @@ enum GROUP_TYPE {
     GT_IF_PRECEDED_BY,
     GT_IF_NOT_PRECEDED_BY,
     GT_BACKREF,
+    GT_BACKREF_CONDITIONAL,
 };
 
 typedef struct tre_Token {

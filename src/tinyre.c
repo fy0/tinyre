@@ -140,9 +140,12 @@ int main(int argc,char* argv[])
     //pattern = tre_compile(".\\n^\\d", FLAG_NONE); // a\n1 failed
     //pattern = tre_compile(".\\n^\\d", FLAG_MULTILINE); // a\n1 matched
     //pattern = tre_compile(".\\n^\\d", FLAG_NONE); // a\n1 failed
-    pattern = tre_compile("()()(?P<b>1)(?P<a>2)(?P<c>4)()(?P=a)cc(?P<e>333)", FLAG_NONE); // 1242cc333
+    //pattern = tre_compile("()()(?P<b>1)(?P<a>2)(?P<c>4)()(?P=a)cc(?P<e>333)", FLAG_NONE); // 1242cc333
+    //pattern = tre_compile("(?P<a>1)(?(a)222|3)", FLAG_NONE); // 12223
+    pattern = tre_compile("(?P<a>1)?(?(a)3|2)", FLAG_NONE);
+
     if (pattern) {
-        match = tre_match(pattern, "1242cc333", 0);
+        match = tre_match(pattern, "231", 0);
 
         if (match->groups) {
             putchar('\n');

@@ -43,5 +43,7 @@ int tre_last_parser_error();
 #define ERR_PARSER_IMPOSSIBLE_TOKEN               -14
 // unknow group name
 #define ERR_PARSER_UNKNOWN_GROUP_NAME             -15
+// conditional backref with more than two branches
+#define ERR_PARSER_CONDITIONAL_BACKREF            -16
 
 #endif

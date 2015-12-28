@@ -164,6 +164,17 @@ tre_Token* parser_or(tre_Token* tk) {
     // try to catch a |
     OR_List *or, *or2;
     paser_accept(tk->token == '|');
+
+    // code for conditional backref
+    if (m_cur->group_type == GT_BACKREF_CONDITIONAL) {
+        if (m_cur->group_extra) {
+            error_code = ERR_PARSER_CONDITIONAL_BACKREF;
+            return NULL;
+        }
+        m_cur->group_extra = 1;
+    }
+    // end
+
     or = _new(OR_List, 1);
     or->codes = m_cur->codes;
     or->next = NULL;
@@ -177,7 +188,6 @@ tre_Token* parser_or(tre_Token* tk) {
     } else {
         m_cur->or_list = or;
     }
-    m_cur->or_num++;
 
     // CODE GENERATE
     // GROUP_END -1
@@ -188,6 +198,7 @@ tre_Token* parser_or(tre_Token* tk) {
     m_cur->codes->next = _new(INS_List, 1);
     m_cur->codes = m_cur->codes->next;
     m_cur->codes->next = NULL;
+    m_cur->or_num++;
     // END
     return tk + 1;
 }
@@ -327,8 +338,7 @@ tre_Token* parser_group(tre_Token* tk) {
     if (group_type == GT_BACKREF) {
         int i = 1;
         for (ParserMatchGroup* pg = m_start->next; pg; pg = pg->next) {
-            
-            //if (pg->name) printf("%s %s %d %d\n", pg->name, name, memcmp(name, pg->name, strlen(name)));
+
             if (pg->name && (memcmp(name, pg->name, strlen(name)) == 0)) {
                 m_cur->codes->ins = ins_cmp_backref;
                 m_cur->codes->data = _new(int, 1);
@@ -348,8 +358,7 @@ tre_Token* parser_group(tre_Token* tk) {
     // end
 
     if (group_type == GT_NORMAL) {
-        gindex = 1;
-        avaliable_group++;
+        gindex = avaliable_group;
     } else {
         gindex = tk_info->max_normal_group_num;
     }
@@ -367,13 +376,10 @@ tre_Token* parser_group(tre_Token* tk) {
     tk++;
     check_token(tk);
 
+    // 前进至最后
     last_group = m_cur;
-    // 前进至最后一节
-    m_cur = m_start;
     while (m_cur->next) {
         m_cur = m_cur->next;
-        if (group_type == GT_NORMAL && m_cur->group_type == GT_NORMAL) gindex++;
-        if (group_type != GT_NORMAL && m_cur->group_type != GT_NORMAL) gindex++;
     }
 
     // 创建新节点
@@ -386,6 +392,12 @@ tre_Token* parser_group(tre_Token* tk) {
     m_cur->name = name;
     m_cur->group_type = group_type;
     m_cur->codes->next = NULL;
+
+    // code for conditional backref
+    if (group_type == GT_BACKREF_CONDITIONAL) {
+        m_cur->group_extra = 0;
+    }
+    // end
 
     if (name) 
         tk_group_names = tk_group_names->next;
@@ -402,6 +414,29 @@ tre_Token* parser_group(tre_Token* tk) {
 
     if (is_count_width_record != is_count_width) {
         is_count_width = is_count_width_record;
+    }
+    // end
+
+    if (group_type == GT_NORMAL) avaliable_group++;
+
+    // code for conditional backref
+    if (group_type == GT_BACKREF_CONDITIONAL) {
+        if (name) {
+            int i = 1;
+            bool ok = false;
+            for (ParserMatchGroup* pg = m_start->next; pg; pg = pg->next) {
+                if (pg->name && (memcmp(name, pg->name, strlen(name)) == 0)) {
+                    m_cur->group_extra = i;
+                    ok = true;
+                    break;
+                }
+                i++;
+            }
+            if (!ok) {
+                error_code = ERR_PARSER_UNKNOWN_GROUP_NAME;
+                return NULL;
+            }
+        }
     }
     // end
 
@@ -525,13 +560,19 @@ tre_Pattern* compact_group(ParserMatchGroup* parser_groups) {
         g->type = pg->group_type;
         g->extra = pg->group_extra;
 
-        if (pg->or_num) {
+        if (or_lst) {
             code_lens = pg->or_num * 2 * sizeof(int); // recount
 
             data = g->codes + (pg->or_num-1) * 2;
             for (code = pg->codes_start; true; code = code->next) {
                 while (or_lst && or_lst->codes == code) {
-                    *data++ = ins_save_snap;
+                    // code for conditional backref
+                    if (pg->group_type == GT_BACKREF_CONDITIONAL) {
+                        *data++ = ins_jmp;
+                    // end
+                    } else {
+                        *data++ = ins_save_snap;
+                    }
                     *data = code_lens;
                     data -= 3;
                     or_lst = or_lst->next;
