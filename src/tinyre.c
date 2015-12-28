@@ -28,6 +28,12 @@ void tre_err(int err_code) {
         printf_u8("input error: unicode escape failed, requires 8 chars(\\u00000000).\n");
     } else if (err_code == ERR_LEXER_HEX_ESCAPE) {
         printf_u8("input error: hex escape failed, requires 2 chars(\\x00).\n");
+    } else if (err_code == ERR_LEXER_BAD_GROUP_NAME_IN_BACKREF) {
+        printf_u8("input error: bad group name in backref\n");
+    } else if (err_code == ERR_LEXER_INVALID_GROUP_NAME_OR_INDEX) {
+        printf_u8("input error: invalid group name or index\n");
+    } else if (err_code == ERR_LEXER_REDEFINITION_OF_GROUP_NAME) {
+        printf_u8("input error: redefinition of group name\n");
     } else if (err_code == ERR_PARSER_REQUIRES_FIXED_WIDTH_PATTERN) {
         printf_u8("input error: look-behind requires fixed-width pattern\n");
     } else if (err_code == ERR_PARSER_BAD_CHARACTER_RANGE) {
@@ -38,6 +44,8 @@ void tre_err(int err_code) {
         printf_u8("input error: impossible token\n");
     } else if (err_code == ERR_PARSER_UNKNOWN_GROUP_NAME) {
         printf_u8("input error: unknow group name\n");
+    } else if (err_code == ERR_PARSER_INVALID_GROUP_INDEX) {
+        printf_u8("input error: invalid group index in conditional backref\n");
     } else {
         printf_u8("parsering falied!!!\n");
     }
@@ -142,7 +150,11 @@ int main(int argc,char* argv[])
     //pattern = tre_compile(".\\n^\\d", FLAG_NONE); // a\n1 failed
     //pattern = tre_compile("()()(?P<b>1)(?P<a>2)(?P<c>4)()(?P=a)cc(?P<e>333)", FLAG_NONE); // 1242cc333
     //pattern = tre_compile("(?P<a>1)(?(a)222|3)", FLAG_NONE); // 12223
-    pattern = tre_compile("(?P<a>1)?(?(a)3|2)", FLAG_NONE);
+    //pattern = tre_compile("(?P<a>1)?(?(a)3|2)", FLAG_NONE); //231
+    //pattern = tre_compile("(?P<a>1)?(?(1)3|2)", FLAG_NONE); // 231
+    //pattern = tre_compile("(?P<a>1)?(?(2)3|2)", FLAG_NONE); // invalid group index in conditional backref
+    //pattern = tre_compile("(?P<a>1)?(?(b)3|2)", FLAG_NONE); // unknow group name
+    pattern = tre_compile("(?P<a>1)?(?P<a>)", FLAG_NONE); // redefinition of group name
 
     if (pattern) {
         match = tre_match(pattern, "231", 0);

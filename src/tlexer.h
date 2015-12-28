@@ -50,5 +50,6 @@ void token_info_free(TokenInfo* tki);
 #define ERR_LEXER_UNICODE6_ESCAPE               -8
 #define ERR_LEXER_HEX_ESCAPE                    -9
 #define ERR_LEXER_BAD_GROUP_NAME_IN_BACKREF     -10
-
+#define ERR_LEXER_INVALID_GROUP_NAME_OR_INDEX   -11
+#define ERR_LEXER_REDEFINITION_OF_GROUP_NAME    -12
 #endif

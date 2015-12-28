@@ -214,6 +214,22 @@ char* read_group_name(const char** pp, char end_terminal) {
     return name;
 }
 
+int read_int(const char** pp, char end_terminal) {
+    int ret;
+    int code;
+    const char*p = *pp;
+
+    p = utf8_decode(p, &code);
+    ret = try_get_int(code, &p);
+
+    if (ret == -1 || *p != end_terminal) {
+        return -1;
+    }
+
+    *pp = p+1;
+    return ret;
+}
+
 int tre_lexer(char* s, TokenInfo** ptki) {
     int i, code;
     int extra_flag = 0;
@@ -349,19 +365,29 @@ int tre_lexer(char* s, TokenInfo** ptki) {
                 (pt - 1)->code = GT_IF_NOT_MATCH;
             // code for conditional backref
             } else if (code == '(') {
-                TokenGroupName* group_name;
                 char* name = read_group_name(&p, ')');
-                (pt - 1)->code = GT_BACKREF_CONDITIONAL;
+                if (name) {
+                    TokenGroupName* group_name;
+                    (pt - 1)->code = GT_BACKREF_CONDITIONAL;
 
-                group_name = _new(TokenGroupName, 1);
-                group_name->name = name;
-                group_name->tk = pt - 1;
-                group_name->next = NULL;
+                    group_name = _new(TokenGroupName, 1);
+                    group_name->name = name;
+                    group_name->tk = pt - 1;
+                    group_name->next = NULL;
 
-                if (!last_group_name) group_names = last_group_name = group_name;
-                else {
-                    last_group_name->next = group_name;
-                    last_group_name = last_group_name->next;
+                    if (!last_group_name) group_names = last_group_name = group_name;
+                    else {
+                        last_group_name->next = group_name;
+                        last_group_name = last_group_name->next;
+                    }
+                } else {
+                    i = read_int(&p, ')');
+
+                    if (i == -1) {
+                        return ERR_LEXER_INVALID_GROUP_NAME_OR_INDEX;
+                    } else if (i > 0) {
+                        (pt - 1)->code = GT_BACKREF_CONDITIONAL + i;
+                    }
                 }
             // end
             } else if (code == 'P') {
@@ -371,6 +397,15 @@ int tre_lexer(char* s, TokenInfo** ptki) {
                     TokenGroupName* group_name;
                     char* name = read_group_name(&p, '>');
                     if (!name) return ERR_LEXER_BAD_GROUP_NAME;
+
+                    // group name check
+                    if (last_group_name) {
+                        for (group_name = group_names; group_name; group_name = group_name->next) {
+                            if (group_name->tk->code == GT_NORMAL && (memcmp(name, group_name->name, strlen(name)) == 0)) {
+                                return ERR_LEXER_REDEFINITION_OF_GROUP_NAME;
+                            }
+                        }
+                    }
 
                     group_name = _new(TokenGroupName, 1);
                     group_name->name = name;

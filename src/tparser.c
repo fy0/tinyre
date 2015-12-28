@@ -166,7 +166,7 @@ tre_Token* parser_or(tre_Token* tk) {
     paser_accept(tk->token == '|');
 
     // code for conditional backref
-    if (m_cur->group_type == GT_BACKREF_CONDITIONAL) {
+    if (m_cur->group_type >= GT_BACKREF_CONDITIONAL) {
         if (m_cur->group_extra) {
             error_code = ERR_PARSER_CONDITIONAL_BACKREF;
             return NULL;
@@ -328,17 +328,16 @@ tre_Token* parser_group(tre_Token* tk) {
     TRE_DEBUG_PRINT("GROUP\n");
 
     paser_accept(tk->token == '(');
+    group_type = tk->code;
+
     if (tk_group_names && tk_group_names->tk == tk) {
         name = tk_group_names->name;
     }
-
-    group_type = tk->code;
 
     // code for back reference (?P=), backref group is not real group
     if (group_type == GT_BACKREF) {
         int i = 1;
         for (ParserMatchGroup* pg = m_start->next; pg; pg = pg->next) {
-
             if (pg->name && (memcmp(name, pg->name, strlen(name)) == 0)) {
                 m_cur->codes->ins = ins_cmp_backref;
                 m_cur->codes->data = _new(int, 1);
@@ -389,12 +388,16 @@ tre_Token* parser_group(tre_Token* tk) {
     m_cur->next = NULL;
     m_cur->or_num = 0;
     m_cur->or_list = NULL;
-    m_cur->name = name;
+    m_cur->name = (group_type == GT_NORMAL) ? name : NULL;
     m_cur->group_type = group_type;
     m_cur->codes->next = NULL;
 
     // code for conditional backref
-    if (group_type == GT_BACKREF_CONDITIONAL) {
+    if (group_type == GT_BACKREF_CONDITIONAL && (!name)) {
+        // (?(0)...)
+        group_type = m_cur->group_type = 0;
+    }
+    if (group_type >= GT_BACKREF_CONDITIONAL) {
         m_cur->group_extra = 0;
     }
     // end
@@ -417,15 +420,13 @@ tre_Token* parser_group(tre_Token* tk) {
     }
     // end
 
-    if (group_type == GT_NORMAL) avaliable_group++;
-
     // code for conditional backref
-    if (group_type == GT_BACKREF_CONDITIONAL) {
+    if (group_type >= GT_BACKREF_CONDITIONAL) {
         if (name) {
             int i = 1;
             bool ok = false;
             for (ParserMatchGroup* pg = m_start->next; pg; pg = pg->next) {
-                if (pg->name && (memcmp(name, pg->name, strlen(name)) == 0)) {
+                if (pg->group_type == GT_NORMAL && pg->name && (memcmp(name, pg->name, strlen(name)) == 0)) {
                     m_cur->group_extra = i;
                     ok = true;
                     break;
@@ -436,9 +437,17 @@ tre_Token* parser_group(tre_Token* tk) {
                 error_code = ERR_PARSER_UNKNOWN_GROUP_NAME;
                 return NULL;
             }
+        } else {
+            m_cur->group_extra = group_type - GT_BACKREF_CONDITIONAL;
+            if (m_cur->group_extra >= avaliable_group) {
+                error_code = ERR_PARSER_INVALID_GROUP_INDEX;
+                return NULL;
+            }
         }
     }
     // end
+
+    if (group_type == GT_NORMAL) avaliable_group++;
 
     // CODE GENERATE
     // CMP_GROUP INDEX

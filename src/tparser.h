@@ -34,16 +34,18 @@ tre_Pattern* tre_parser(TokenInfo* _tki, tre_Token** last_token);
 int tre_last_parser_error();
 
 // look-behind requires fixed-width pattern
-#define ERR_PARSER_REQUIRES_FIXED_WIDTH_PATTERN   -11
+#define ERR_PARSER_REQUIRES_FIXED_WIDTH_PATTERN   -51
 // bad character range
-#define ERR_PARSER_BAD_CHARACTER_RANGE            -12
+#define ERR_PARSER_BAD_CHARACTER_RANGE            -52
 // nothing to repeat
-#define ERR_PARSER_NOTHING_TO_REPEAT              -13
+#define ERR_PARSER_NOTHING_TO_REPEAT              -53
 // impossible token
-#define ERR_PARSER_IMPOSSIBLE_TOKEN               -14
+#define ERR_PARSER_IMPOSSIBLE_TOKEN               -54
 // unknow group name
-#define ERR_PARSER_UNKNOWN_GROUP_NAME             -15
+#define ERR_PARSER_UNKNOWN_GROUP_NAME             -55
 // conditional backref with more than two branches
-#define ERR_PARSER_CONDITIONAL_BACKREF            -16
+#define ERR_PARSER_CONDITIONAL_BACKREF            -56
+// invalid group index in conditional backref
+#define ERR_PARSER_INVALID_GROUP_INDEX            -57
 
 #endif
