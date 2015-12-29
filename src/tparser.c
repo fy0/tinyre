@@ -506,6 +506,7 @@ int group_sort(ParserMatchGroup* parser_groups) {
 void clear_parser(ParserMatchGroup* parser_groups) {
     ParserMatchGroup *pg, *pg_tmp;
     INS_List *code, *code_tmp;
+    OR_List *or_list, *or_list_tmp;
 
     for (pg = parser_groups; pg; ) {
         for (code = pg->codes_start; code->next; ) {
@@ -518,6 +519,12 @@ void clear_parser(ParserMatchGroup* parser_groups) {
         free(code);
 
         free(pg->name);
+
+        for (or_list = pg->or_list; or_list; ) {
+            or_list_tmp = or_list;
+            or_list = or_list->next;
+            free(or_list_tmp);
+        }
         
         pg_tmp = pg;
         pg = pg->next;
