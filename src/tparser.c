@@ -402,8 +402,10 @@ tre_Token* parser_group(tre_Token* tk) {
     }
     // end
 
-    if (name) 
+    if (name) {
+        if (group_type == GT_NORMAL) tk_group_names->name = NULL; // fix for mem free
         tk_group_names = tk_group_names->next;
+    }
 
     ret = tk;
     while ((ret = parser_block(ret))) tk = ret;
@@ -623,9 +625,6 @@ tre_Pattern* compact_group(ParserMatchGroup* parser_groups) {
 
     ret->groups = groups;
     ret->num_all = gnum;
-
-    // TODO: why crash? i need valgrind.
-    //free(parser_groups);
 
     return ret;
 }

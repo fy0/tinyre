@@ -92,8 +92,31 @@ tre_Match* tre_match(tre_Pattern* tp, const char* str, int backtrack_limit)
     tre_Match* match = _new(tre_Match, 1);
     match->groupnum = vms->group_num;
     match->groups = groups;
+    match->str = vms->input_str;
     vm_free(vms);
     return match;
+}
+
+void tre_pattern_free(tre_Pattern *ptn) {
+    int i;
+
+    for (i = 0; i < ptn->num_all; i++) {
+        free(ptn->groups[i].codes);
+        free(ptn->groups[i].name);
+    }
+
+    free(ptn->groups);
+    free(ptn);
+}
+
+void tre_match_free(tre_Match *m) {
+    int i;
+    for (i = 0; i < m->groupnum; i++) {
+        free(m->groups[i].name);
+    }
+    free(m->str);
+    free(m->groups);
+    free(m);
 }
 
 #ifdef DEMO
@@ -176,6 +199,9 @@ int main(int argc,char* argv[])
             }
         }
     }
+
+    tre_pattern_free(pattern);
+    tre_match_free(match);
 
     return 0;
 }

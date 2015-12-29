@@ -486,6 +486,16 @@ int tre_lexer(char* s, TokenInfo** ptki) {
 }
 
 void token_info_free(TokenInfo* tki) {
+    TokenGroupName *pg, *pg_tmp;
+
+    for (pg = tki->group_names; pg; ) {
+        pg_tmp = pg;
+        pg = pg->next;
+        if (pg_tmp->name) free(pg_tmp->name);
+        free(pg_tmp);
+    }
+
     free(tki->tokens);
-    free(tki->group_names);
+    free(tki);
 }
+

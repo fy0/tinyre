@@ -7,6 +7,8 @@
 #ifndef TINYRE_H
 #define TINYRE_H
 
+#include <stdint.h>
+
 enum tre_Flag {
     FLAG_NONE = 0,
     //FLAG_TEMPLATE = 1,
@@ -53,6 +55,7 @@ typedef struct tre_GroupResult {
 
 typedef struct tre_Match {
     int groupnum;
+    uint32_t* str;
     tre_GroupResult* groups;
 } tre_Match;
 
@@ -61,7 +64,7 @@ tre_Pattern* tre_compile(char* s, int flag);
 tre_Match* tre_match(tre_Pattern* tp, const char* str, int backtrack_limit);
 
 /* 释放内存占用 */
-//void tre_free_pattern(tre_Pattern *ptn);
-//void tre_free_match(tre_Match *m);
+void tre_pattern_free(tre_Pattern *ptn);
+void tre_match_free(tre_Match *m);
 
 #endif

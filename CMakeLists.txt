@@ -34,6 +34,7 @@ if (MSVC)
     set(CMAKE_CXX_FLAGS_RELEASE "/MT")
 else(MSVC)
     set(CMAKE_C_FLAGS "-std=c99")
+    set(CMAKE_C_FLAGS_DEBUG "-g")
 endif(MSVC)
 
 add_definitions(-DUNICODE -D_UNICODE -DDEMO)

@@ -581,7 +581,10 @@ tre_GroupResult* vm_exec(VMState* vms) {
             if (vms->match_results[i].head && vms->match_results[i].tail) {
                 results[i].head = vms->match_results[i].head;
                 results[i].tail = vms->match_results[i].tail;
-                results[i].name = vms->groups[i].name;
+                if (vms->groups[i].name) {
+                    results[i].name = _new(char, strlen(vms->groups[i].name)+1);
+                    memcpy(results[i].name, vms->groups[i].name, strlen(vms->groups[i].name)+1);
+                }
             }
         }
         return results;
@@ -592,6 +595,22 @@ tre_GroupResult* vm_exec(VMState* vms) {
 
 void vm_free(VMState* vms)
 {
+    VMSnap *snap, *snap_tmp;
+    RunCache *rc, *rc_tmp;
+
+    for (snap = vms->snap; snap;) {
+        for (rc = snap->run_cache; rc; ) {
+            rc_tmp = rc;
+            rc = rc->prev;
+            free(rc_tmp);
+        }
+
+        snap_tmp = snap;
+        snap = snap->prev;
+        free(snap_tmp);
+    }
+
     free(vms->match_results);
     free(vms);
 }
+
