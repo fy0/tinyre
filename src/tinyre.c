@@ -111,8 +111,10 @@ void tre_pattern_free(tre_Pattern *ptn) {
 
 void tre_match_free(tre_Match *m) {
     int i;
-    for (i = 0; i < m->groupnum; i++) {
-        free(m->groups[i].name);
+    if (m->groups) {
+        for (i = 0; i < m->groupnum; i++) {
+            free(m->groups[i].name);
+        }
     }
     free(m->str);
     free(m->groups);
@@ -181,7 +183,7 @@ int main(int argc,char* argv[])
     pattern = tre_compile("(?P<a>a)b(c)de(fc)?[fgh]i", FLAG_NONE);
 
     if (pattern) {
-        match = tre_match(pattern, "abcdehi", 0);
+        match = tre_match(pattern, "acdehi", 0);
 
         if (match->groups) {
             putchar('\n');
@@ -200,8 +202,12 @@ int main(int argc,char* argv[])
         }
     }
 
-    tre_pattern_free(pattern);
-    tre_match_free(match);
+    if (pattern) {
+        tre_pattern_free(pattern);
+        if (match) {
+            tre_match_free(match);  
+        }
+    }
 
     return 0;
 }

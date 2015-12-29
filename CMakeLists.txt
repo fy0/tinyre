@@ -2,10 +2,10 @@
 cmake_minimum_required(VERSION 2.8)
 
 project (tinyre)
+set(CMAKE_BUILD_TYPE Debug)
 
 cmake_policy(SET CMP0015 OLD)
 
-#set(CMAKE_BUILD_TYPE Debug)
 if (MSVC)
     set(CMAKE_GENERATOR_TOOLSET "v120_xp" CACHE STRING "Platform Toolset" FORCE) 
     set(CMAKE_VS_PLATFORM_TOOLSET "v120_xp" CACHE STRING "Platform Toolset" FORCE)
