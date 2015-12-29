@@ -480,6 +480,7 @@ int tre_lexer(char* s, TokenInfo** ptki) {
     token_info->extra_flag = extra_flag;
     token_info->group_names = group_names;
     token_info->max_normal_group_num = max_normal_group_num;
+    token_info->token_num = pt - tokens;
     *ptki = token_info;
 
     return pt - tokens;

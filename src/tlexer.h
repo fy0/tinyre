@@ -33,6 +33,7 @@ typedef struct TokenGroupName {
 } TokenGroupName;
 
 typedef struct TokenInfo {
+    int token_num;
     tre_Token* tokens;
     int extra_flag;
     int max_normal_group_num;

@@ -72,17 +72,15 @@ tre_Pattern* tre_compile(char* s, int flag) {
 
     groups = tre_parser(tki, &last_token);
 
-    if (last_token == NULL || last_token < tki->tokens + ret) {
-        token_info_free(tki);
+    if (groups == NULL) {
         ret = tre_last_parser_error();
         tre_err(ret);
     } else {
         groups->flag = flag | tki->extra_flag;
-        token_info_free(tki);
-        return groups;
     }
 
-    return NULL;
+    token_info_free(tki);
+    return groups;
 }
 
 tre_Match* tre_match(tre_Pattern* tp, const char* str, int backtrack_limit)
@@ -180,10 +178,10 @@ int main(int argc,char* argv[])
     //pattern = tre_compile("(?P<a>1)?(?(2)3|2)", FLAG_NONE); // invalid group index in conditional backref
     //pattern = tre_compile("(?P<a>1)?(?(b)3|2)", FLAG_NONE); // unknow group name
     //pattern = tre_compile("(?P<a>1)?(?P<a>)", FLAG_NONE); // redefinition of group name
-    pattern = tre_compile("(?P<a>a)b(c)de(fc)?[fgh]i", FLAG_NONE);
+    pattern = tre_compile("(?P<a>a)(?P=aa)", FLAG_NONE);
 
     if (pattern) {
-        match = tre_match(pattern, "acdehi", 0);
+        match = tre_match(pattern, "a", 0);
 
         if (match->groups) {
             putchar('\n');

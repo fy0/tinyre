@@ -503,6 +503,28 @@ int group_sort(ParserMatchGroup* parser_groups) {
     return gnum;
 }
 
+void clear_parser(ParserMatchGroup* parser_groups) {
+    ParserMatchGroup *pg, *pg_tmp;
+    INS_List *code, *code_tmp;
+
+    for (pg = parser_groups; pg; ) {
+        for (code = pg->codes_start; code->next; ) {
+            code_tmp = code;
+            code = code->next;
+            free(code_tmp->data);
+            free(code_tmp);
+        }
+        // the final one
+        free(code);
+
+        free(pg->name);
+        
+        pg_tmp = pg;
+        pg = pg->next;
+        free(pg_tmp);
+    }
+}
+
 tre_Pattern* tre_parser(TokenInfo* tki, tre_Token** last_token) {
     tre_Token* tokens;
     tre_Pattern* ret;
@@ -528,7 +550,7 @@ tre_Pattern* tre_parser(TokenInfo* tki, tre_Token** last_token) {
     tokens = parser_blocks(tki->tokens);
     *last_token = tokens;
 
-    if (tokens) {
+    if (tokens && (tokens >= tki->tokens + tki->token_num)) {
         group_sort(m_start);
 #ifdef TRE_DEBUG
         debug_ins_list_print(m_start);
@@ -538,6 +560,7 @@ tre_Pattern* tre_parser(TokenInfo* tki, tre_Token** last_token) {
         return ret;
     }
 
+    clear_parser(m_start);
     return NULL;
 }
 
