@@ -230,18 +230,24 @@ int read_int(const char** pp, char end_terminal) {
     return ret;
 }
 
-int tre_lexer(char* s, TokenInfo** ptki) {
+int read_tokens(char* s, tre_Token* tokens, TokenInfo** ptki) {
     int i, code;
     int extra_flag = 0;
-    int len = utf8_len(s);
     int rlen = strlen(s);
     int max_normal_group_num = 1;
     const char* s_end = s + rlen + 1;
-    TokenInfo* token_info;
-    TokenGroupName* group_names = NULL, *last_group_name = NULL;
+    TokenGroupName *group_names = NULL, *last_group_name = NULL;
 
-    tre_Token* tokens = _new(tre_Token, len+1);
+    TokenInfo* token_info;
     tre_Token* pt = tokens;
+
+#define clear_group_names() if (group_names) { \
+    for (;group_names;) { \
+        last_group_name = group_names; \
+        group_names=group_names->next; \
+        free(last_group_name->name); \
+        free(last_group_name);} \
+    }
 
     int state = 0; // 0 NOMRAL | 1 [...] | 2 {...} | 3 (?...)
 
@@ -256,14 +262,14 @@ int tre_lexer(char* s, TokenInfo** ptki) {
                 else if ((pt - 1)->token == '(') state = 3;
             } else {
                 int ret = token_char_accept(code, s_end, &p, &pt, true);
-                if (ret) return ret;
+                if (ret) {clear_group_names(); return ret;}
             }
         } else if (state == 1) {
             if ((pt - 1)->token == '[' && code == '^')
                 (pt - 1)->code = 1;
             else {
                 int ret = token_char_accept(code, s_end, &p, &pt, false);
-                if (ret) return ret;
+                if (ret) {clear_group_names(); return ret;}
 
                 if ((pt - 1)->token == TK_CHAR) {
                     if ((pt-1)->code == ']' && *p != '-') {
@@ -353,7 +359,7 @@ int tre_lexer(char* s, TokenInfo** ptki) {
                     p = utf8_decode(p, &code);
                     if (is_escape) is_escape = false;
                     if (code == '\\') is_escape = true;
-                    if (code == '\0') return ERR_LEXER_UNBALANCED_PARENTHESIS;
+                    if (code == '\0') {clear_group_names(); return ERR_LEXER_UNBALANCED_PARENTHESIS;}
                 }
                 pt--;
                 pt->token = 0;
@@ -384,6 +390,7 @@ int tre_lexer(char* s, TokenInfo** ptki) {
                     i = read_int(&p, ')');
 
                     if (i == -1) {
+                        clear_group_names();
                         return ERR_LEXER_INVALID_GROUP_NAME_OR_INDEX;
                     } else if (i > 0) {
                         (pt - 1)->code = GT_BACKREF_CONDITIONAL + i;
@@ -396,12 +403,13 @@ int tre_lexer(char* s, TokenInfo** ptki) {
                 if (code == '<') {
                     TokenGroupName* group_name;
                     char* name = read_group_name(&p, '>');
-                    if (!name) return ERR_LEXER_BAD_GROUP_NAME;
+                    if (!name) {clear_group_names(); return ERR_LEXER_BAD_GROUP_NAME;}
 
                     // group name check
                     if (last_group_name) {
                         for (group_name = group_names; group_name; group_name = group_name->next) {
                             if (group_name->tk->code == GT_NORMAL && (memcmp(name, group_name->name, strlen(name)) == 0)) {
+                                clear_group_names();
                                 return ERR_LEXER_REDEFINITION_OF_GROUP_NAME;
                             }
                         }
@@ -423,7 +431,7 @@ int tre_lexer(char* s, TokenInfo** ptki) {
                 } else if (code == '=') {
                     TokenGroupName* group_name;
                     char* name = read_group_name(&p, ')');
-                    if (!name) return ERR_LEXER_BAD_GROUP_NAME_IN_BACKREF;
+                    if (!name) {clear_group_names();return ERR_LEXER_BAD_GROUP_NAME_IN_BACKREF;}
 
                     group_name = _new(TokenGroupName, 1);
                     group_name->name = name;
@@ -439,6 +447,7 @@ int tre_lexer(char* s, TokenInfo** ptki) {
                     (pt - 1)->code = GT_BACKREF;
                 // end
                 } else {
+                    clear_group_names();
                     return ERR_LEXER_UNKNOW_SPECIFIER;
                 }
             } else if (code == '<') {
@@ -448,7 +457,7 @@ int tre_lexer(char* s, TokenInfo** ptki) {
                 } else if (code == '!') {
                     (pt - 1)->code = GT_IF_NOT_PRECEDED_BY;
                 } else {
-                    // tip: the error of sre (syntax error) is meaningless.
+                    clear_group_names();
                     return ERR_LEXER_UNKNOW_SPECIFIER;
                 }
             } else if (char_to_flag(code)) {
@@ -460,11 +469,13 @@ int tre_lexer(char* s, TokenInfo** ptki) {
                     p = utf8_decode(p, &code);
                 }
                 if (code != ')') {
+                    clear_group_names();
                     return ERR_LEXER_UNEXPECTED_END_OF_PATTERN;
                 }
                 pt--;
                 pt->token = 0;
             } else {
+                clear_group_names();
                 return ERR_LEXER_UNEXPECTED_END_OF_PATTERN;
             }
         }
@@ -484,6 +495,21 @@ int tre_lexer(char* s, TokenInfo** ptki) {
     *ptki = token_info;
 
     return pt - tokens;
+
+}
+
+int tre_lexer(char* s, TokenInfo** ptki) {
+    int ret;
+    int len = utf8_len(s);
+
+    tre_Token* tokens = _new(tre_Token, len+1);
+    ret = read_tokens(s, tokens, ptki);
+
+    if (ret < 0) {
+        free(tokens);
+    }
+
+    return ret;
 }
 
 void token_info_free(TokenInfo* tki) {
