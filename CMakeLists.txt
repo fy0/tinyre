@@ -39,7 +39,7 @@ endif(MSVC)
 
 add_definitions(-DUNICODE -D_UNICODE)
 
-IF(DEBUG_mode)
+IF(${CMAKE_BUILD_TYPE} MATCHES "Debug")
     add_definitions(-DTRE_DEBUG)
 ENDIF()
 
@@ -63,7 +63,7 @@ IF(${build_target} MATCHES "demo")
 ELSEIF(${build_target} MATCHES "py3lib")
     # library
     add_definitions(-DPY3LIB)
-    set(CMAKE_C_FLAGS "-std=c99 -Wimplicit-function-declaration")
-    add_library(_tre SHARED ${SRC_LIST})
+    add_library(_tinyre SHARED ${SRC_LIST})
+    set_target_properties(_tinyre PROPERTIES PREFIX "")
 ENDIF()
 

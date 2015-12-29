@@ -1,6 +1,5 @@
 # coding:utf-8
-# tinyre v0.9.1 wrapper
-# fy, 2012-2013
+# tinyre v0.9.0 wrapper
 
 import _tinyre
 

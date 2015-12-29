@@ -178,10 +178,10 @@ int main(int argc,char* argv[])
     //pattern = tre_compile("(?P<a>1)?(?(2)3|2)", FLAG_NONE); // invalid group index in conditional backref
     //pattern = tre_compile("(?P<a>1)?(?(b)3|2)", FLAG_NONE); // unknow group name
     //pattern = tre_compile("(?P<a>1)?(?P<a>)", FLAG_NONE); // redefinition of group name
-    pattern = tre_compile("(a(?P<a>1)aa(?#", FLAG_NONE);
+    pattern = tre_compile("(?P<c>((a)))", FLAG_NONE);
 
     if (pattern) {
-        match = tre_match(pattern, "a", 0);
+        match = tre_match(pattern, "a1", 0);
 
         if (match->groups) {
             putchar('\n');

@@ -357,7 +357,7 @@ tre_Token* parser_group(tre_Token* tk) {
     // end
 
     if (group_type == GT_NORMAL) {
-        gindex = avaliable_group;
+        gindex = 1; // 注意 gindex 不等于 avaliable_group 这里我犯过一次错误
     } else {
         gindex = tk_info->max_normal_group_num;
     }
@@ -377,8 +377,12 @@ tre_Token* parser_group(tre_Token* tk) {
 
     // 前进至最后
     last_group = m_cur;
+    m_cur = m_start;
+
     while (m_cur->next) {
         m_cur = m_cur->next;
+        if (group_type == GT_NORMAL && m_cur->group_type == GT_NORMAL) gindex++;
+        if (group_type != GT_NORMAL && m_cur->group_type != GT_NORMAL) gindex++;
     }
 
     // 创建新节点
