@@ -20,5 +20,6 @@ bak/
 .gitignore~
 *.[ch]~
 *.un~
+*.py~
 *.txt~
 *.swp

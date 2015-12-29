@@ -93,11 +93,11 @@ void debug_ins_list_print(ParserMatchGroup* groups) {
     }
 }
 
-void debug_printstr(int* head, int* tail) {
-    int *p = head;
+void debug_printstr(int* str, int head, int tail) {
+    int *p = str + head;
     if (tail <= head) return;
 
-    while (p != tail) {
+    while (p != str + tail) {
         putcode(*p++);
     }
 }

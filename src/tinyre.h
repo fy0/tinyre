@@ -48,8 +48,8 @@ typedef struct tre_Pattern {
 
 typedef struct tre_GroupResult {
     char* name;
-    int* head;
-    int* tail;
+    int head;
+    int tail;
 } tre_GroupResult;
 
 
@@ -68,3 +68,4 @@ void tre_pattern_free(tre_Pattern *ptn);
 void tre_match_free(tre_Match *m);
 
 #endif
+

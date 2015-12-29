@@ -579,12 +579,14 @@ tre_GroupResult* vm_exec(VMState* vms) {
         memset(results, 0, sizeof(tre_GroupResult) * vms->group_num);
         for (i = 0; i < vms->group_num; i++) {
             if (vms->match_results[i].head && vms->match_results[i].tail) {
-                results[i].head = vms->match_results[i].head;
-                results[i].tail = vms->match_results[i].tail;
+                results[i].head = vms->match_results[i].head - vms->input_str;
+                results[i].tail = vms->match_results[i].tail - vms->input_str;
                 if (vms->groups[i].name) {
                     results[i].name = _new(char, strlen(vms->groups[i].name)+1);
                     memcpy(results[i].name, vms->groups[i].name, strlen(vms->groups[i].name)+1);
                 }
+            } else {
+                results[i].head = -1;
             }
         }
         return results;

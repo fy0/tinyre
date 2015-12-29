@@ -190,8 +190,8 @@ int main(int argc,char* argv[])
                 if (match->groups[i].name) printf_u8("(%s) ", match->groups[i].name);
                 else printf_u8("(null) ");
                 printf_u8("%d %d\n", match->groups[i].head, match->groups[i].tail);
-                if (match->groups[i].head) {
-                    debug_printstr(match->groups[i].head, match->groups[i].tail);
+                if (match->groups[i].head != -1) {
+                    debug_printstr(match->str, match->groups[i].head, match->groups[i].tail);
                 } else {
                     printf_u8("match failed.");
                 }

@@ -1,62 +1,82 @@
 # coding:utf-8
-# tinyre v0.8.1 wrapper
+# tinyre v0.9.1 wrapper
 # fy, 2012-2013
 
-import _tre
+import _tinyre
 
-DOTALL = 2
+# flags
+I = IGNORECASE = 2
+M = MULTILINE = 8
+S = DOTALL = 16
+
 
 class TRE_Pattern:
-    def __init__(self, regex, flag=0):
-        self.pattern = regex
-        self.__pattern__ = _tre._compile(regex, flag)
-    def match(self,text):
-        ret = _tre._match(self.__pattern__,text)
+    def __init__(self, pattern, flags=0):
+        self.pattern = pattern
+        self.__cpattern__ = _tinyre._compile(pattern, flags)
+
+    def match(self, text, backtrack_limit=0):
+        ret = _tinyre._match(self.__cpattern__, text, backtrack_limit)
         if ret:
-            return TRE_Match(ret)
-    def sub(self, repl, text, count=0):
-        return _tre._sub(self.__pattern__, repl, text, count)
+            return TRE_Match(text, ret)
+
 
 class TRE_Match:
-    def __init__(self,args):
-        self.__data__ = args
+    def __init__(self, text, data):
+        groupspan = []
+        groupdict = {}
+        for i in data:
+            info = i[1:]
+            if i[0]:
+                groupdict[i[0]] = info
+            groupspan.append(info)
+        self.__text__ = text
+        self.__groupspan__ = groupspan
+        self.__groupdict__ = groupdict
 
-    def group(self,i=0):
-        if type(i) == int:
-            return self.__data__[i][1]
+    def __get_text_by_index__(self, i):
+        a, b = self.__groupspan__[i]
+        return self.__text__[a:b]
+
+    def __get_text_by_name__(self, i):
+        a, b = self.__groupdict__[i]
+        return self.__text__[a:b]
+
+    def group(self, *indices):
+        ret = []
+        if len(indices) == 0:
+            indices = {0}
+
+        for i in indices:
+            if type(i) == int:
+                ret.append(self.__get_text_by_index__(i))
+            elif type(i) == str:
+                ret.append(self.__get_text_by_name__(i))
+        if len(ret) == 1:
+            return ret[0]
         else:
-            for n in self.__data__:
-                if n[0] == i:
-                    return n[1]
+            return ret
 
     def groups(self):
-        d = self.__data__
-        l = len(d)
-        if l>1:
-            ret = []
-            for i in d[1:]:
-                ret.append(i[1])
-            return tuple(ret)
+        ret = []
+        for i in self.__groupspan__:
+            a, b = i
+            ret.append(self.__text__[a:b])
+        return ret
 
     def string(self):
-        return self.__data__[0][1]
+        return self.__text__
 
-def compile(regex, flag=0):
-    return TRE_Pattern(regex, flag)
 
-def match(pattern, text, flag=0):
+def compile(pattern, flags=0):
+    return TRE_Pattern(pattern, flags)
+
+
+def match(pattern, text, flags=0, backtrack_limit=0):
     if pattern.__class__ != TRE_Pattern:
         if pattern.__class__ == str:
-            return TRE_Match(_tre._compile_and_match(pattern, text, flag))
-        return None
-    ret = _tre._match(pattern.__pattern__, text)
-    if ret:
-        return TRE_Match(ret)
-
-def sub(pattern, repl, text, count=0, flag=0):
-    if pattern.__class__ != TRE_Pattern:
-        if pattern.__class__ == str:
-            return _tre._compile_and_sub(pattern, repl, text, count, flag)
-        return None
-    return _tre._sub(pattern.__pattern__, repl, text, count)
+            pattern = compile(pattern, flags)
+        else:
+            return None
+    return pattern.match(text, backtrack_limit)
 

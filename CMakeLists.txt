@@ -37,7 +37,7 @@ else(MSVC)
     set(CMAKE_C_FLAGS_DEBUG "-g")
 endif(MSVC)
 
-add_definitions(-DUNICODE -D_UNICODE -DDEMO)
+add_definitions(-DUNICODE -D_UNICODE)
 
 IF(DEBUG_mode)
     add_definitions(-DTRE_DEBUG)
@@ -49,10 +49,21 @@ set (SRC_LIST ${project_headers} ${project_cpps})
 
 source_group_by_dir(SRC_LIST)
 
-add_executable(tinyre ${SRC_LIST})
-#add_library(tinyre ${SRC_LIST})
+#set(build_target demo)
+set(build_target py3lib)
 
-if (NOT MSVC)
-    target_link_libraries(tinyre m)
-endif(MSVC)
+IF(${build_target} MATCHES "demo")
+    # demo
+    add_definitions(-DDEMO)
+    add_executable(tinyre ${SRC_LIST})
+
+    if (NOT MSVC)
+        target_link_libraries(tinyre m)
+    endif(NOT MSVC)
+ELSEIF(${build_target} MATCHES "py3lib")
+    # library
+    add_definitions(-DPY3LIB)
+    set(CMAKE_C_FLAGS "-std=c99 -Wimplicit-function-declaration")
+    add_library(_tre SHARED ${SRC_LIST})
+ENDIF()
 
