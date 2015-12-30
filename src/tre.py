@@ -8,11 +8,20 @@ I = IGNORECASE = 2
 M = MULTILINE = 8
 S = DOTALL = 16
 
+class error(Exception):
+    msg = ''
 
 class TRE_Pattern:
-    def __init__(self, pattern, flags=0):
-        self.pattern = pattern
-        self.__cpattern__ = _tinyre._compile(pattern, flags)
+    @classmethod
+    def __new_pattern__(self, pattern, flags=0):
+        ret = _tinyre._compile(pattern, flags)
+        if type(ret) == int:
+            raise error(ret)
+        else:
+            ptn = TRE_Pattern()
+            ptn.__cpattern__ = ret
+            ptn.pattern = pattern
+            return ptn
 
     def match(self, text, backtrack_limit=0):
         ret = _tinyre._match(self.__cpattern__, text, backtrack_limit)
@@ -32,6 +41,14 @@ class TRE_Match:
         self.__text__ = text
         self.__groupspan__ = groupspan
         self.__groupdict__ = groupdict
+        self.lastindex = None
+
+        if groupspan:
+            index = 0
+            for i in groupspan[1:]:
+                if i[0]:
+                    index += 1
+                    self.lastindex = index
 
     def __get_text_by_index__(self, i):
         a, b = self.__groupspan__[i]
@@ -40,6 +57,12 @@ class TRE_Match:
     def __get_text_by_name__(self, i):
         a, b = self.__groupdict__[i]
         return self.__text__[a:b]
+
+    def span(self, index=0):
+        a, b = self.__groupspan__[index]
+        if a is None:
+            return -1, -1
+        return a, b
 
     def group(self, *indices):
         ret = []
@@ -54,21 +77,37 @@ class TRE_Match:
         if len(ret) == 1:
             return ret[0]
         else:
-            return ret
+            return tuple(ret)
 
     def groups(self):
         ret = []
         for i in self.__groupspan__:
             a, b = i
-            ret.append(self.__text__[a:b])
+            if a is None:
+                ret.append(None)
+            else:
+                ret.append(self.__text__[a:b])
+        return tuple(ret[1:])
+
+    def groupdict(self):
+        ret = {}
+        for k, v in self.__groupdict__.items():
+            a, b = v
+            ret[k] = self.__text__[a:b] if a != -1 else None
         return ret
+
+    def start(self, index=0):
+        return self.span(index)[0]
+
+    def end(self, index=0):
+        return self.span(index)[1]
 
     def string(self):
         return self.__text__
 
 
 def compile(pattern, flags=0):
-    return TRE_Pattern(pattern, flags)
+    return TRE_Pattern.__new_pattern__(pattern, flags)
 
 
 def match(pattern, text, flags=0, backtrack_limit=0):

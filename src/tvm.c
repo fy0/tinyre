@@ -39,9 +39,18 @@ void snap_free(VMSnap* snap) {
     free(snap);
 }
 
-void vm_input_next(VMState* vms) {
+void vm_check_text_end(VMState* vms) {
+    if (vms->snap->str_pos == (vms->input_str + vms->input_len)) {
+        if (!vms->snap->text_end) vms->snap->text_end = true;
+    } else {
+        if (vms->snap->text_end) vms->snap->text_end = false;
+    }
+}
+
+bool vm_input_next(VMState* vms) {
     vms->snap->str_pos++;
     vms->snap->chrcode = *vms->snap->str_pos;
+    return true;
 }
 
 _INLINE static
@@ -80,6 +89,7 @@ int do_ins_cmp(VMState* vms) {
     putcode(vms->snap->chrcode);
     putchar('\n');
 #endif
+    if (vms->snap->text_end) return 0;
     if (char_cmp(char_code, vms->snap->chrcode, vms->flag))
         return 2;
     return 0;
@@ -109,6 +119,7 @@ int do_ins_cmp_spe(VMState* vms) {
 
     TRE_DEBUG_PRINT("INS_CMP_SPE\n");
 
+    if (vms->snap->text_end) return 0;
     if (char_cmp_spe(char_code, vms->snap->chrcode, vms->flag)) {
         return 2;
     }
@@ -137,9 +148,7 @@ int do_ins_cmp_multi(VMState* vms, bool is_ncmp) {
 
     TRE_DEBUG_PRINT("INS_CMP_MULTI\n");
 
-    if (vms->snap->chrcode == 0) {
-        return 0;
-    }
+    if (vms->snap->text_end) return 0;
 
     for (i = 0; i < num; i++) {
         _type = *((int*)data + i * 3);
@@ -176,6 +185,7 @@ int do_ins_cmp_backref(VMState* vms) {
 
     TRE_DEBUG_PRINT("INS_CMP_BACKREF\n");
 
+    if (vms->snap->text_end) return 0;
     if (index >= vms->group_num)
         return 0;
 
@@ -208,7 +218,7 @@ _INLINE static
 int do_ins_jmp(VMState* vms) {
     int offset = *(vms->snap->codes + 1);
     TRE_DEBUG_PRINT("INS_JMP\n");
-    vms->snap->codes += offset / sizeof(int) + 2;
+    vms->snap->codes = vms->groups[vms->snap->cur_group].codes + (offset / sizeof(int)) + 2;
     return 1;
 }
 
@@ -274,7 +284,7 @@ int do_ins_cmp_group(VMState* vms) {
     // end
 
     // set match result, value of head
-    if (index < vms->group_num) {
+    if (index < vms->group_num_all) {
         vms->match_results[index].tmp = vms->snap->str_pos;
     }
 
@@ -319,7 +329,7 @@ int do_ins_group_end(VMState* vms) {
     }
 
     // set match result
-    if (index < vms->group_num) {
+    if (index < vms->group_num_all) {
         vms->match_results[index].head = vms->match_results[index].tmp;
         vms->match_results[index].tail = vms->snap->str_pos;
     }
@@ -346,7 +356,7 @@ int try_backtracking(VMState* vms) {
         VMSnap* tmp;
 
         if (vms->backtrack_limit && vms->backtrack_num >= vms->backtrack_limit) {
-            return 0;
+            return -2;
         }
         vms->backtrack_num += 1;
 
@@ -364,6 +374,7 @@ int try_backtracking(VMState* vms) {
         }
         return 1;
     }
+    TRE_DEBUG_PRINT("INS_BACKTRACK\n");
     return 0;
 }
 
@@ -422,6 +433,7 @@ int do_ins_save_snap(VMState* vms) {
 int vm_step(VMState* vms) {
     int ret;
     int cur_ins = *vms->snap->codes;
+    vm_check_text_end(vms);
 
     if (cur_ins >= ins_cmp && cur_ins <= ins_group_end) {
         // no greedy match
@@ -445,7 +457,9 @@ int vm_step(VMState* vms) {
         }
 
         if (ret) {
-            if (cur_ins < ins_cmp_group) vm_input_next(vms);
+            if (cur_ins < ins_cmp_group) {
+                vm_input_next(vms);
+            }
             // CMP_GROUP is very different,
             // It's begin of match, and end at GROUP_END.
             // Other CMPs is both begin and end of one match.
@@ -456,14 +470,18 @@ int vm_step(VMState* vms) {
                     vms->snap->mr.cur_repeat++;
 
                     if (greed) {
-                        if (vms->snap->mr.cur_repeat >= vms->snap->mr.llimit) {
+                        // 贪婪模式 达到左边界，有资格保存回溯
+                        if (vms->snap->mr.cur_repeat >= vms->snap->mr.llimit && vms->snap->mr.llimit != vms->snap->mr.rlimit) {
                             save_snap(vms);
                         }
+                        // 达到右边界，越过匹配指令，跳出循环
                         if (vms->snap->mr.cur_repeat == vms->snap->mr.rlimit) {
                             vms->snap->mr.enable = 0;
                             vms->snap->codes += ret;
                         }
-                        if (cur_ins == ins_group_end && vms->snap->mr.cur_repeat >= vms->snap->mr.llimit && vms->snap->mr.cur_repeat != vms->snap->mr.rlimit) {
+                        // 特别的，匹配空串的组被强制跳过
+                        if ((cur_ins == ins_group_end) && (vms->snap->mr.cur_repeat >= vms->snap->mr.llimit) &&
+                                (vms->snap->mr.cur_repeat != vms->snap->mr.rlimit)) {
                             // match "nothing" is no sense : (|)
                             if (vms->match_results[group_cache].head == vms->match_results[group_cache].tail) {
                                 vms->snap->mr.enable = 0;
@@ -472,9 +490,11 @@ int vm_step(VMState* vms) {
                         }
                     } else {
                         if (vms->snap->mr.cur_repeat >= vms->snap->mr.llimit) {
-                            if (vms->snap->mr.cur_repeat != vms->snap->mr.rlimit && 
-                                vms->match_results[group_cache].head != vms->match_results[group_cache].tail)
+                            if (((cur_ins != ins_group_end) && (vms->snap->mr.cur_repeat != vms->snap->mr.rlimit)) ||
+                                ((cur_ins == ins_group_end) && (vms->snap->mr.cur_repeat != vms->snap->mr.rlimit) && 
+                                 (vms->match_results[group_cache].head != vms->match_results[group_cache].tail))) {
                                 save_snap(vms);
+                            }
                             vms->snap->mr.enable = 0;
                             vms->snap->codes += ret;
                         }
@@ -497,6 +517,7 @@ int vm_step(VMState* vms) {
     } else if (cur_ins == ins_match_start) {
         // ^
         // Tip for multiline: \n is newline, \r is nothing, tested.
+        TRE_DEBUG_PRINT("INS_MATCH_START\n");
         if (vms->snap->str_pos == vms->input_str || ((vms->flag & FLAG_MULTILINE) && (*(vms->snap->str_pos - 1) == '\n'))) {
             vms->snap->codes += 1;
             ret = 1;
@@ -505,7 +526,8 @@ int vm_step(VMState* vms) {
         }
     } else if (cur_ins == ins_match_end) {
         // $
-        if (vms->snap->chrcode == 0 || ((vms->flag & FLAG_MULTILINE) && (vms->snap->chrcode == '\n'))) {
+        TRE_DEBUG_PRINT("INS_MATCH_END\n");
+        if (vms->snap->text_end || ((vms->flag & FLAG_MULTILINE) && (vms->snap->chrcode == '\n'))) {
             vms->snap->codes += 1;
             ret = 1;
         } else {
@@ -516,7 +538,7 @@ int vm_step(VMState* vms) {
     return ret;
 }
 
-int* u8str_to_u32str(const char* p) {
+int* u8str_to_u32str(const char* p, int* len) {
     int *ret, *p2;
     int i, code, slen = utf8_len(p);
 
@@ -527,6 +549,7 @@ int* u8str_to_u32str(const char* p) {
         *p2++ = code;
     }
 
+    *len = slen;
     *p2 = 0;
     return ret;
 }
@@ -534,7 +557,7 @@ int* u8str_to_u32str(const char* p) {
 VMState* vm_init(tre_Pattern* groups_info, const char* input_str, int backtrack_limit) {
     VMState* vms = _new(VMState, 1);
     vms->raw_input_str = input_str;
-    vms->input_str = u8str_to_u32str(input_str);
+    vms->input_str = u8str_to_u32str(input_str, &(vms->input_len));
 
     vms->group_num = groups_info->num;
     vms->group_num_all = groups_info->num_all;
@@ -549,8 +572,8 @@ VMState* vm_init(tre_Pattern* groups_info, const char* input_str, int backtrack_
     vms->backtrack_limit = backtrack_limit;
 
     // init match results of groups
-    vms->match_results = _new(GroupResultTemp, groups_info->num);
-    memset(vms->match_results, 0, sizeof(GroupResultTemp) * groups_info->num);
+    vms->match_results = _new(GroupResultTemp, groups_info->num_all); //  tre.match(r'(?:a?)*y', 'z')
+    memset(vms->match_results, 0, sizeof(GroupResultTemp) * groups_info->num_all);
     vms->match_results[0].tmp = vms->input_str;
 
     // init first snap
@@ -559,6 +582,7 @@ VMState* vm_init(tre_Pattern* groups_info, const char* input_str, int backtrack_
     vms->snap->str_pos = vms->input_str;
     vms->snap->chrcode = *vms->input_str;
     vms->snap->cur_group = 0;
+    vms->snap->text_end = false;
     memset(&vms->snap->mr, 0, sizeof(MatchRepeat));
     vms->snap->run_cache = NULL;
     vms->snap->prev = NULL;

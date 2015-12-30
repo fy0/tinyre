@@ -398,11 +398,11 @@ tre_Token* parser_group(tre_Token* tk) {
 
     // code for conditional backref
     if (group_type == GT_BACKREF_CONDITIONAL && (!name)) {
-        // (?(0)...)
+        // (?(0)...) is normal group
         group_type = m_cur->group_type = 0;
     }
     if (group_type >= GT_BACKREF_CONDITIONAL) {
-        m_cur->group_extra = 0;
+        m_cur->group_extra = 0; // flag
     }
     // end
 
@@ -445,11 +445,33 @@ tre_Token* parser_group(tre_Token* tk) {
             }
         } else {
             m_cur->group_extra = group_type - GT_BACKREF_CONDITIONAL;
+            /* not an error
             if (m_cur->group_extra >= avaliable_group) {
                 error_code = ERR_PARSER_INVALID_GROUP_INDEX;
                 return NULL;
-            }
+            }*/
+            m_cur->group_type = GT_BACKREF_CONDITIONAL;
         }
+
+        // without "no" branch
+        if (!m_cur->or_list) {
+            OR_List* or_list = _new(OR_List, 1);
+            or_list->codes = m_cur->codes;
+            or_list->next = NULL;
+            m_cur->or_list = or_list;
+            m_cur->or_num++;
+
+            // GROUP_END -1
+            m_cur->codes->ins = ins_group_end;
+            m_cur->codes->data = _new(int, 1);
+            m_cur->codes->len = sizeof(int);
+            *(int*)m_cur->codes->data = -1;
+            m_cur->codes->next = _new(INS_List, 1);
+            m_cur->codes = m_cur->codes->next;
+            m_cur->codes->next = NULL;
+            // END
+        }
+
     }
     // end
 
@@ -622,7 +644,7 @@ tre_Pattern* compact_group(ParserMatchGroup* parser_groups) {
                     data -= 3;
                     or_tmp = or_lst;
                     or_lst = or_lst->next;
-                    //free(or_tmp);
+                    free(or_tmp);
                 }
                 if (!code->next) break;
                 code_lens += (code->len + sizeof(int));

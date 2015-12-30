@@ -53,6 +53,7 @@ typedef struct VMSnap {
     int* str_pos;
     int chrcode;
     int cur_group;
+    bool text_end;
     MatchRepeat mr;
     RunCache* run_cache;
     struct VMSnap* prev;
@@ -60,6 +61,7 @@ typedef struct VMSnap {
 
 typedef struct VMState {
     const char* raw_input_str;
+    int input_len;
     int* input_str;
     int group_num;
     int group_num_all;

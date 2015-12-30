@@ -50,8 +50,9 @@ void debug_ins_list_print(ParserMatchGroup* groups) {
                 printf_u8("%15s ", "CMP_SPE");
                 putcode(*(int*)code->data);
                 putchar('\n');
-            } else if (code->ins == ins_cmp_multi) {
-                printf_u8("%15s %d ", "CMP_MULTI", *(int*)code->data);
+            } else if (code->ins == ins_cmp_multi || code->ins == ins_ncmp_multi) {
+                if (code->ins == ins_cmp_multi) printf_u8("%15s %d ", "CMP_MULTI", *(int*)code->data);
+                else printf_u8("%15s %d ", "NCMP_MULTI", *(int*)code->data);
                 printf_u8("%6d    ", *((int*)code->data + 1));
                 putcode(*((int*)code->data + 2));
 

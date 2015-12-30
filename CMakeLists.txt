@@ -3,6 +3,8 @@ cmake_minimum_required(VERSION 2.8)
 
 project (tinyre)
 set(CMAKE_BUILD_TYPE Debug)
+set(build_target demo)
+#set(build_target py3lib)
 
 cmake_policy(SET CMP0015 OLD)
 
@@ -48,9 +50,6 @@ file(GLOB_RECURSE project_cpps src/*.c)
 set (SRC_LIST ${project_headers} ${project_cpps})
 
 source_group_by_dir(SRC_LIST)
-
-#set(build_target demo)
-set(build_target py3lib)
 
 IF(${build_target} MATCHES "demo")
     # demo

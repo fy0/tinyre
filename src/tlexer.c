@@ -268,10 +268,11 @@ int read_tokens(char* s, tre_Token* tokens, TokenInfo** ptki) {
             if ((pt - 1)->token == '[' && code == '^')
                 (pt - 1)->code = 1;
             else {
+                bool is_escape = code == '\\';
                 int ret = token_char_accept(code, s_end, &p, &pt, false);
                 if (ret) {clear_group_names(); return ret;}
 
-                if ((pt - 1)->token == TK_CHAR) {
+                if (!is_escape && ((pt - 1)->token == TK_CHAR)) {
                     if ((pt-1)->code == ']' && *p != '-') {
                         (pt-1)->token = ']';
                         state = 0;

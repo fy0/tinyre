@@ -51,7 +51,7 @@ void tre_err(int err_code) {
     }
 }
 
-tre_Pattern* tre_compile(char* s, int flag) {
+tre_Pattern* tre_compile(char* s, int flag, int* err_code) {
     int ret;
     tre_Token *last_token;
     TokenInfo* tki;
@@ -66,7 +66,7 @@ tre_Pattern* tre_compile(char* s, int flag) {
     }
 
     if (ret < 0) {
-        tre_err(ret);
+        *err_code = ret;
         return NULL;
     }
 
@@ -74,7 +74,7 @@ tre_Pattern* tre_compile(char* s, int flag) {
 
     if (groups == NULL) {
         ret = tre_last_parser_error();
-        tre_err(ret);
+        *err_code = ret;
     } else {
         groups->flag = flag | tki->extra_flag;
     }
@@ -124,64 +124,15 @@ void tre_match_free(tre_Match *m) {
 int main(int argc,char* argv[])
 {
     int i;
+    int err_code;
     tre_Pattern* pattern;
     tre_Match* match = NULL;
     platform_init();
 
-    //tre_compile("a中+文*测?试\\醃b[1\\d2+\\][\\]\\a3]厑c\\de{1,5}\\", 0);
-    //tre_compile("abc\\a\\d([123](c)d)jk123", 0);
-    //MatchGroup* groups = tre_compile("ab?c+\\a*\\d([123]+(c)?d)jk123", 0);
-    //tre_Pattern* groups = tre_compile("(a([acd\\s123]))", 0);
-    //tre_Pattern* groups = tre_compile("^(a).?([acd\\s123])", 0);
-    //pattern = tre_compile("^(bb)*?a{1{,}c+?", 0);
-    //pattern = tre_compile("^a$b?", 0);
-    //pattern = tre_compile("(a|)+", 0); //a
-    //pattern = tre_compile("(b|)+?b", 0); //a
-    //pattern = tre_compile("(a|b|c)", 0); //c
-    //pattern = tre_compile("c.", FLAG_DOTALL); // ca c\n
-    //pattern = tre_compile("(?#123C."); // error: unbalanced parenthesis
-    //pattern = tre_compile("(?i)C.", FLAG_NONE); // ca
-    //pattern = tre_compile("(?s)c.", FLAG_NONE); // c\n
-    //pattern = tre_compile("(?is)C.", FLAG_NONE); // c\n
-    //pattern = tre_compile("a中+文*测?试\\醃b[1\\d2+\\][\\]\\a3]厑c\\de{1,5}\\", 0); // a中中中测试醃b+厑c1eeee\\ 
-    //pattern = tre_compile("(?P<asdf>1)((?:a(c))(?:d))", FLAG_NONE); // 1acd
-    //pattern = tre_compile("(?!a)+b", FLAG_NONE); // b
-    //pattern = tre_compile("(?!(eb|ec))e", FLAG_NONE); // efe
-    //pattern = tre_compile("(?=(c|(e)(b)))e", FLAG_NONE); // eb
-    //pattern = tre_compile("e(?<=((?=(e*))e))e", FLAG_NONE); //ee
-    //pattern = tre_compile("c(?<!b)e", FLAG_NONE); //ce
-    //pattern = tre_compile("c(?<!bc{10})e", FLAG_NONE); //ce
-    //pattern = tre_compile("[123,4]{3}", FLAG_NONE); //4,1
-    //pattern = tre_compile("[----a-z123,4d-e]+", FLAG_NONE); //4,1-f
-    //pattern = tre_compile("[\\S-z]+", FLAG_NONE); //a
-    //pattern = tre_compile("[\\r-A]+", FLAG_IGNORECASE); //[ //not match
-    //pattern = tre_compile("(.a+)[\\64]\\1", FLAG_NONE); // aaa@aaaa
-    //pattern = tre_compile("\\u5B25A", FLAG_NONE); // 嬥A
-    //pattern = tre_compile("\\U00005b25A", FLAG_NONE); // 嬥A
-    //pattern = tre_compile("\\x61b", FLAG_NONE); // ab
-    //pattern = tre_compile("\\uAaAA", FLAG_NONE); // success
-    //pattern = tre_compile("\\uAaA", FLAG_NONE); // failed
-    //pattern = tre_compile("\\x0a", FLAG_NONE); // success
-    //pattern = tre_compile("\\xa", FLAG_NONE); // falied
-    //pattern = tre_compile("\\U0000000B", FLAG_NONE); // success
-    //pattern = tre_compile("a{}", FLAG_NONE); // a{}
-    //pattern = tre_compile("a{0,", FLAG_NONE); // a{0,
-    //pattern = tre_compile("a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?aaaaaaaaaaaaaaa", FLAG_NONE); // aaaaaaaaaaaaaaa slow, requires optimization
-    //pattern = tre_compile("\\d$", FLAG_MULTILINE); // 1\na matched
-    //pattern = tre_compile(".\\n^\\d", FLAG_NONE); // a\n1 failed
-    //pattern = tre_compile(".\\n^\\d", FLAG_MULTILINE); // a\n1 matched
-    //pattern = tre_compile(".\\n^\\d", FLAG_NONE); // a\n1 failed
-    //pattern = tre_compile("()()(?P<b>1)(?P<a>2)(?P<c>4)()(?P=a)cc(?P<e>333)", FLAG_NONE); // 1242cc333
-    //pattern = tre_compile("(?P<a>1)(?(a)222|3)", FLAG_NONE); // 12223
-    //pattern = tre_compile("(?P<a>1)?(?(a)3|2)", FLAG_NONE); //231
-    //pattern = tre_compile("(?P<a>1)?(?(1)3|2)", FLAG_NONE); // 231
-    //pattern = tre_compile("(?P<a>1)?(?(2)3|2)", FLAG_NONE); // invalid group index in conditional backref
-    //pattern = tre_compile("(?P<a>1)?(?(b)3|2)", FLAG_NONE); // unknow group name
-    //pattern = tre_compile("(?P<a>1)?(?P<a>)", FLAG_NONE); // redefinition of group name
-    pattern = tre_compile("(?P<c>((a)))", FLAG_NONE);
+    pattern = tre_compile("(?:a?)*y", FLAG_DOTALL, &err_code);
 
     if (pattern) {
-        match = tre_match(pattern, "a1", 0);
+        match = tre_match(pattern, "y", 0);
 
         if (match->groups) {
             putchar('\n');
@@ -198,6 +149,8 @@ int main(int argc,char* argv[])
                 printf_u8("\n");
             }
         }
+    } else {
+        tre_err(err_code);
     }
 
     if (pattern) {

@@ -60,7 +60,7 @@ typedef struct tre_Match {
 } tre_Match;
 
 /* 表达式编译和匹配 */
-tre_Pattern* tre_compile(char* s, int flag);
+tre_Pattern* tre_compile(char* s, int flag, int* err_code);
 tre_Match* tre_match(tre_Pattern* tp, const char* str, int backtrack_limit);
 
 /* 释放内存占用 */

@@ -12,19 +12,20 @@ static PyObject* trepy_compile(PyObject *self, PyObject* args)
 {
     char* re;
     char flag;
+    int err_code;
 
     if(!PyArg_ParseTuple(args, "sb", &re, &flag)) {
         Py_INCREF(Py_None);
         return Py_None;
     }
 
-    tre_Pattern* ret = tre_compile(re, flag);
+    tre_Pattern* ret = tre_compile(re, flag, &err_code);
+
     if (ret) {
         PyObject *o = PyCapsule_New(ret, "_tre_pattern", trepy_pattern_free);
         return o;
     } else {
-        Py_INCREF(Py_None);
-        return Py_None;
+        return PyLong_FromLong(err_code);
     }
 }
 
