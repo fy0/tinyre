@@ -34,9 +34,9 @@ tre_Token* parser_single_char(tre_Token* tk) {
         // CODE GENERATE
         // CMP/CMP_SPE CODE
         m_cur->codes->ins = tk->token == TK_CHAR ? ins_cmp : ins_cmp_spe;
-        m_cur->codes->data = _new(int, 1);
-        m_cur->codes->len = sizeof(int) * 1;
-        *(int*)m_cur->codes->data = tk->code;
+        m_cur->codes->data = _new(uint32_t, 1);
+        m_cur->codes->len = sizeof(uint32_t) * 1;
+        *m_cur->codes->data = tk->code;
         m_cur->codes->next = _new(INS_List, 1);
         m_cur->codes = m_cur->codes->next;
         m_cur->codes->next = NULL;
@@ -107,8 +107,8 @@ tre_Token* parser_char_set(tre_Token* tk) {
     // CODE GENERATE
     // CMP_MULTI NUM [TYPE1 CODE1 NOOP], [TYPE2 CODE2 NOOP], [TYPE3 RANGE1 RANGE2] ...
     m_cur->codes->ins = is_ncmp ? ins_ncmp_multi : ins_cmp_multi;
-    m_cur->codes->data = _new(int, 3 * num + 1);
-    m_cur->codes->len = sizeof(int) * (3 * num + 1);
+    m_cur->codes->data = _new(uint32_t, 3 * num + 1);
+    m_cur->codes->len = sizeof(uint32_t) * (3 * num + 1);
     // END
 
     data = (int*)m_cur->codes->data;
@@ -192,9 +192,9 @@ tre_Token* parser_or(tre_Token* tk) {
     // CODE GENERATE
     // GROUP_END -1
     m_cur->codes->ins = ins_group_end;
-    m_cur->codes->data = _new(int, 1);
-    m_cur->codes->len = sizeof(int);
-    *(int*)m_cur->codes->data = -1;
+    m_cur->codes->data = _new(uint32_t, 1);
+    m_cur->codes->len = sizeof(uint32_t);
+    *m_cur->codes->data = -1;
     m_cur->codes->next = _new(INS_List, 1);
     m_cur->codes = m_cur->codes->next;
     m_cur->codes->next = NULL;
@@ -208,9 +208,9 @@ tre_Token* parser_back_ref(tre_Token* tk) {
         // CODE GENERATE
         // CMP_BACKREF INDEX
         m_cur->codes->ins = ins_cmp_backref;
-        m_cur->codes->data = _new(int, 1);
-        m_cur->codes->len = sizeof(int) * 1;
-        *(int*)m_cur->codes->data = tk->code;
+        m_cur->codes->data = _new(uint32_t, 1);
+        m_cur->codes->len = sizeof(uint32_t) * 1;
+        *m_cur->codes->data = tk->code;
         m_cur->codes->next = _new(INS_List, 1);
         m_cur->codes = m_cur->codes->next;
         m_cur->codes->next = NULL;
@@ -298,10 +298,10 @@ tre_Token* parser_block(tre_Token* tk) {
             m_cur->codes->next = NULL;
 
             last_ins->ins = greed ? ins_check_point : ins_check_point_no_greed;
-            last_ins->data = _new(int, 2);
-            last_ins->len = sizeof(int) * 2;
-            *(int*)last_ins->data = llimit;
-            *((int*)last_ins->data + 1) = rlimit;
+            last_ins->data = _new(uint32_t, 2);
+            last_ins->len = sizeof(uint32_t) * 2;
+            *last_ins->data = llimit;
+            *(last_ins->data + 1) = rlimit;
         }
         // END
     } else {
@@ -340,9 +340,9 @@ tre_Token* parser_group(tre_Token* tk) {
         for (ParserMatchGroup* pg = m_start->next; pg; pg = pg->next) {
             if (pg->name && (memcmp(name, pg->name, strlen(name)) == 0)) {
                 m_cur->codes->ins = ins_cmp_backref;
-                m_cur->codes->data = _new(int, 1);
-                m_cur->codes->len = sizeof(int) * 1;
-                *(int*)m_cur->codes->data = i;
+                m_cur->codes->data = _new(uint32_t, 1);
+                m_cur->codes->len = sizeof(uint32_t) * 1;
+                *m_cur->codes->data = i;
                 m_cur->codes->next = _new(INS_List, 1);
                 m_cur->codes = m_cur->codes->next;
                 m_cur->codes->next = NULL;
@@ -463,9 +463,9 @@ tre_Token* parser_group(tre_Token* tk) {
 
             // GROUP_END -1
             m_cur->codes->ins = ins_group_end;
-            m_cur->codes->data = _new(int, 1);
-            m_cur->codes->len = sizeof(int);
-            *(int*)m_cur->codes->data = -1;
+            m_cur->codes->data = _new(uint32_t, 1);
+            m_cur->codes->len = sizeof(uint32_t);
+            *m_cur->codes->data = -1;
             m_cur->codes->next = _new(INS_List, 1);
             m_cur->codes = m_cur->codes->next;
             m_cur->codes->next = NULL;
@@ -480,9 +480,9 @@ tre_Token* parser_group(tre_Token* tk) {
     // CODE GENERATE
     // CMP_GROUP INDEX
     last_group->codes->ins = ins_cmp_group;
-    last_group->codes->data = _new(int, 1);
-    last_group->codes->len = sizeof(int) * 1;
-    *(int*)last_group->codes->data = gindex;
+    last_group->codes->data = _new(uint32_t, 1);
+    last_group->codes->len = sizeof(uint32_t) * 1;
+    *last_group->codes->data = gindex;
     last_group->codes->next = _new(INS_List, 1);
     last_group->codes = last_group->codes->next;
     last_group->codes->next = NULL;
@@ -599,7 +599,7 @@ tre_Pattern* tre_parser(TokenInfo* tki, tre_Token** last_token) {
 
 
 tre_Pattern* compact_group(ParserMatchGroup* parser_groups) {
-    int* data;
+    uint32_t* data;
     int gnum = 0;
     MatchGroup* g;
     MatchGroup* groups;
@@ -613,7 +613,7 @@ tre_Pattern* compact_group(ParserMatchGroup* parser_groups) {
 
     gnum = 0;
     for (pg = parser_groups; pg; ) {
-        int code_lens = pg->or_num * sizeof(int) * 2;
+        int code_lens = pg->or_num * sizeof(uint32_t) * 2;
         or_lst = pg->or_list;
         g = groups + gnum;
 
@@ -622,13 +622,13 @@ tre_Pattern* compact_group(ParserMatchGroup* parser_groups) {
         }
 
         // sizeof(int)*2 is space for group_end
-        g->codes = malloc(code_lens + sizeof(int) * 2);
+        g->codes = malloc(code_lens + sizeof(uint32_t) * 2);
         g->name = pg->name;
         g->type = pg->group_type;
         g->extra = pg->group_extra;
 
         if (or_lst) {
-            code_lens = pg->or_num * 2 * sizeof(int); // recount
+            code_lens = pg->or_num * 2 * sizeof(uint32_t); // recount
 
             data = g->codes + (pg->or_num-1) * 2;
             for (code = pg->codes_start; true; code = code->next) {
@@ -647,7 +647,7 @@ tre_Pattern* compact_group(ParserMatchGroup* parser_groups) {
                     free(or_tmp);
                 }
                 if (!code->next) break;
-                code_lens += (code->len + sizeof(int));
+                code_lens += (code->len + sizeof(uint32_t));
             }
         }
 
@@ -658,7 +658,7 @@ tre_Pattern* compact_group(ParserMatchGroup* parser_groups) {
 
             if (code->len) {
                 memcpy(data, code->data, code->len);
-                data += (code->len / sizeof(int));
+                data += (code->len / sizeof(uint32_t));
                 free(code->data);
             }
 

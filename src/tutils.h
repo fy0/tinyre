@@ -22,7 +22,7 @@
 
 #define _new(__obj_type, __size) (__obj_type*)malloc((sizeof(__obj_type)*(__size)))
 
-static void putcode(int code) {
+static void putcode(uint32_t code) {
     if (code < 0xff) {
         putchar((char)code);
     } else {

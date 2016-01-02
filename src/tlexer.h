@@ -2,6 +2,8 @@
 #ifndef TINYRE_LEXER_H
 #define TINYRE_LEXER_H
 
+#include "tutils.h"
+
 #define FIRST_TOKEN    128
 
 enum TOKEN_LIST {
@@ -22,8 +24,8 @@ enum GROUP_TYPE {
 };
 
 typedef struct tre_Token {
-    int token;
-    int code;
+    uint32_t token;
+    uint32_t code;
 } tre_Token;
 
 typedef struct TokenGroupName {

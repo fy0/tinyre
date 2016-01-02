@@ -7,8 +7,8 @@
 
 typedef struct INS_List {
     int len;
-    int ins;
-    void* data;
+    uint32_t ins;
+    uint32_t* data;
     struct INS_List* next;
 } INS_List;
 

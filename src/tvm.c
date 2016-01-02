@@ -70,7 +70,7 @@ int jump_one_cmp(VMState* vms) {
 }
 
 _INLINE static bool
-char_cmp(int chrcode_re, int chrcode, int flag) {
+char_cmp(uint32_t chrcode_re, uint32_t chrcode, int flag) {
     if (flag & FLAG_IGNORECASE) {
         return (tolower(chrcode_re) == tolower(chrcode));
     } else {
@@ -80,7 +80,7 @@ char_cmp(int chrcode_re, int chrcode, int flag) {
 
 _INLINE static
 int do_ins_cmp(VMState* vms) {
-    int char_code = *(vms->snap->codes + 1);
+    uint32_t char_code = *(vms->snap->codes + 1);
 
 #ifdef TRE_DEBUG
     printf_u8("INS_CMP ");
@@ -96,7 +96,7 @@ int do_ins_cmp(VMState* vms) {
 }
 
 _INLINE static bool
-char_cmp_spe(int chrcode_re, int chrcode, int flag) {
+char_cmp_spe(uint32_t chrcode_re, uint32_t chrcode, int flag) {
     switch (chrcode_re) {
         case '.':
             if (flag & FLAG_DOTALL) return true;
@@ -115,7 +115,7 @@ char_cmp_spe(int chrcode_re, int chrcode, int flag) {
 
 _INLINE static
 int do_ins_cmp_spe(VMState* vms) {
-    int char_code = *(vms->snap->codes + 1);
+    uint32_t char_code = *(vms->snap->codes + 1);
 
     TRE_DEBUG_PRINT("INS_CMP_SPE\n");
 
@@ -141,9 +141,9 @@ char_cmp_range(int range1, int range2, int chrcode, int flag) {
 _INLINE static
 int do_ins_cmp_multi(VMState* vms, bool is_ncmp) {
     int i;
-    int _type, _code;
+    uint32_t _type, _code;
     bool match = false;
-    int* data = vms->snap->codes + 1;
+    uint32_t* data = vms->snap->codes + 1;
     int num = *data++;
 
     TRE_DEBUG_PRINT("INS_CMP_MULTI\n");
@@ -151,8 +151,8 @@ int do_ins_cmp_multi(VMState* vms, bool is_ncmp) {
     if (vms->snap->text_end) return 0;
 
     for (i = 0; i < num; i++) {
-        _type = *((int*)data + i * 3);
-        _code = *((int*)data + i * 3 + 1);
+        _type = *(data + i * 3);
+        _code = *(data + i * 3 + 1);
 
         if (_type == TK_CHAR) {
             if (char_cmp(_code, vms->snap->chrcode, vms->flag)) {
@@ -423,7 +423,7 @@ int do_ins_save_snap(VMState* vms) {
     int* tmp;
     tmp = vms->snap->codes;
     // group start + offset + length of group_end
-    vms->snap->codes = vms->groups[vms->snap->cur_group].codes + (*(vms->snap->codes + 1) / sizeof(int)) + 2;
+    vms->snap->codes = vms->groups[vms->snap->cur_group].codes + (*(vms->snap->codes + 1) / sizeof(uint32_t)) + 2;
     save_snap(vms);
     vms->snap->codes = tmp + 2;
     return 2;
@@ -432,7 +432,7 @@ int do_ins_save_snap(VMState* vms) {
 
 int vm_step(VMState* vms) {
     int ret;
-    int cur_ins = *vms->snap->codes;
+    uint32_t cur_ins = *vms->snap->codes;
     vm_check_text_end(vms);
 
     if (cur_ins >= ins_cmp && cur_ins <= ins_group_end) {
@@ -538,7 +538,7 @@ int vm_step(VMState* vms) {
     return ret;
 }
 
-int* u8str_to_u32str(const char* p, int* len) {
+uint32_t* u8str_to_u32str(const char* p, int* len) {
     int *ret, *p2;
     int i, code, slen = utf8_len(p);
 

@@ -33,25 +33,25 @@ typedef struct MatchRepeat {
 
 typedef struct RunCache {
     int cur_group;
-    int* codes_cache;
+    uint32_t* codes_cache;
     struct RunCache* prev;
     MatchRepeat mr;
 } RunCache;
 
 
 typedef struct GroupResultTemp {
-    int* head;
-    int* tail;
-    int* tmp;
+    uint32_t* head;
+    uint32_t* tail;
+    uint32_t* tmp;
 } GroupResultTemp;
 
 
 // Ö´ÐÐ×´Ì¬
 
 typedef struct VMSnap {
-    int* codes;
-    int* str_pos;
-    int chrcode;
+    uint32_t* codes;
+    uint32_t* str_pos;
+    uint32_t chrcode;
     int cur_group;
     bool text_end;
     MatchRepeat mr;
@@ -62,7 +62,7 @@ typedef struct VMSnap {
 typedef struct VMState {
     const char* raw_input_str;
     int input_len;
-    int* input_str;
+    uint32_t* input_str;
     int group_num;
     int group_num_all;
     MatchGroup* groups;
@@ -70,7 +70,7 @@ typedef struct VMState {
 
     int backtrack_num;
     int backtrack_limit;
-    int** input_cache;
+    uint32_t** input_cache;
     GroupResultTemp* match_results;
     VMSnap* snap;
 } VMState;

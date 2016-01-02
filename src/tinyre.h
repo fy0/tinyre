@@ -34,7 +34,7 @@ typedef struct MatchGroup {
     char* name;
     int type;
     int extra;
-    int* codes;
+    uint32_t* codes;
 } MatchGroup;
 
 typedef struct tre_Pattern {
