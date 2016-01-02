@@ -129,10 +129,10 @@ int main(int argc,char* argv[])
     tre_Match* match = NULL;
     platform_init();
 
-    pattern = tre_compile("(?:a?)*y", FLAG_DOTALL, &err_code);
+    pattern = tre_compile("1(2)[3]", FLAG_DOTALL, &err_code);
 
     if (pattern) {
-        match = tre_match(pattern, "y", 0);
+        match = tre_match(pattern, "123", 5000);
 
         if (match->groups) {
             putchar('\n');

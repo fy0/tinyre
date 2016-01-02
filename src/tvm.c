@@ -636,6 +636,7 @@ void vm_free(VMState* vms)
         free(snap_tmp);
     }
 
+    if (vms->input_cache) free(vms->input_cache);
     free(vms->match_results);
     free(vms);
 }
