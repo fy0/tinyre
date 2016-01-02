@@ -1,5 +1,11 @@
 language: c
-script: cmake
+
+script:
+  mkdir build
+  cd build
+  cmake ..
+  ./tinyre
+
 compiler:
   - clang
   - gcc
