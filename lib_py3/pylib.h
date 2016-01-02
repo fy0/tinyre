@@ -1,7 +1,7 @@
 
 #ifdef PY3LIB
 
-#include "tinyre.h"
+#include "../src/tinyre.h"
 #include <python3.4/Python.h>
 
 PyMODINIT_FUNC PyInit__tinyre();

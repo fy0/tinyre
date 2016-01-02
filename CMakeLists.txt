@@ -62,7 +62,11 @@ IF(${build_target} MATCHES "demo")
 ELSEIF(${build_target} MATCHES "py3lib")
     # library
     add_definitions(-DPY3LIB)
-    add_library(_tinyre SHARED ${SRC_LIST})
+    file(GLOB_RECURSE py3lib_headers lib_py3/*.h)
+    file(GLOB_RECURSE py3lib_cfiles lib_py3/*.c)
+    set (LIB_PY3_SRC_LIST ${py3lib_headers} ${py3lib_cfiles})
+    source_group_by_dir(LIB_PY3_SRC_LIST)
+    add_library(_tinyre SHARED ${SRC_LIST} ${LIB_PY3_SRC_LIST})
     set_target_properties(_tinyre PROPERTIES PREFIX "")
 ENDIF()
 

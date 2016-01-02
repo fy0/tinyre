@@ -1,7 +1,7 @@
 
 #ifdef PY3LIB
 #include "pylib.h"
-#include "tutils.h"
+#include "../src/tutils.h"
 
 void trepy_pattern_free(PyObject* obj)
 {
