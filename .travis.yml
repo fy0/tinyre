@@ -1,7 +1,7 @@
 language: c
 
 script:
-  mkdir build && cd build && cmake .. && make && ./tinyre
+  mkdir build && cd build && cmake .. && make
 
 compiler:
   - clang
