@@ -1,6 +1,9 @@
 
 # tinyre ver 0.9.0
 
+[![Travis](https://travis-ci.org/fy0/tinyre.svg?branch=master)](https://travis-ci.org/fy0/tinyre)
+[![Code Climate](https://codeclimate.com/github/fy0/tinyre/badges/gpa.svg)](https://codeclimate.com/github/fy0/tinyre)
+
 A tiny regex engine.  
 Plan to be compatible with "Secret Labs' Regular Expression Engine"(SRE for python).  
 
