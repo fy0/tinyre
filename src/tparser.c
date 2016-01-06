@@ -618,7 +618,7 @@ tre_Pattern* compact_group(ParserMatchGroup* parser_groups) {
         g = groups + gnum;
 
         for (code = pg->codes_start; code->next; code = code->next) {
-            code_lens += (code->len + sizeof(int));
+            code_lens += (code->len + sizeof(uint32_t));
         }
 
         // sizeof(int)*2 is space for group_end
