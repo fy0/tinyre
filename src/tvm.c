@@ -218,7 +218,7 @@ _INLINE static
 int do_ins_jmp(VMState* vms) {
     int offset = *(vms->snap->codes + 1);
     TRE_DEBUG_PRINT("INS_JMP\n");
-    vms->snap->codes = vms->groups[vms->snap->cur_group].codes + (offset / sizeof(int)) + 2;
+    vms->snap->codes = vms->groups[vms->snap->cur_group].codes + offset + 2;
     return 1;
 }
 
@@ -423,7 +423,7 @@ int do_ins_save_snap(VMState* vms) {
     int* tmp;
     tmp = vms->snap->codes;
     // group start + offset + length of group_end
-    vms->snap->codes = vms->groups[vms->snap->cur_group].codes + (*(vms->snap->codes + 1) / sizeof(uint32_t)) + 2;
+    vms->snap->codes = vms->groups[vms->snap->cur_group].codes + *(vms->snap->codes + 1) + 2;
     save_snap(vms);
     vms->snap->codes = tmp + 2;
     return 2;
