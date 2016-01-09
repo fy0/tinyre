@@ -318,7 +318,7 @@ int do_ins_group_end(VMState* vms) {
         vms->snap->str_pos = vms->input_cache[index - vms->group_num];
         vms->snap->chrcode = *vms->snap->str_pos;
     } else if (g->type == GT_IF_NOT_MATCH || g->type == GT_IF_NOT_PRECEDED_BY) {
-        int* next_ins = vms->snap->codes + 2;
+        uint32_t* next_ins = vms->snap->codes + 2;
         if (vms->snap->mr.enable == 1) next_ins -= 2;
         do {
             snap_tmp = vms->snap;
@@ -563,7 +563,7 @@ VMState* vm_init(tre_Pattern* groups_info, const char* input_str, int backtrack_
     vms->group_num_all = groups_info->num_all;
     vms->groups = groups_info->groups;
     if (groups_info->num_all > groups_info->num) {
-        vms->input_cache = _new(int*, groups_info->num_all - groups_info->num);
+        vms->input_cache = (uint32_t**)_new(int*, groups_info->num_all - groups_info->num);
     } else {
         vms->input_cache = NULL;
     }

@@ -65,9 +65,9 @@ Some of the functions in this module takes flags as optional parameters:
 *    M  MULTILINE   "^" matches the beginning of lines (after a newline) as well as the string. "$" matches the end of lines (before a newline) as well as the end of the string.
 *    S  DOTALL      "." matches any character at all, including the newline.
 
-
 ## Use
 
+**C/C++**
 ```C
 #include "tinyre.h"
 
@@ -80,6 +80,31 @@ match = tre_match(pattern, "bbbbabc", 0);
 // Group  0: bbbba
 // Group  1: bb
 ```
+
+**Python**
+
+Edit CMakefile.txt, change build_target to py3lib, disable debug
+```cmake
+project (tinyre)
+#set(CMAKE_BUILD_TYPE Debug)
+#set(build_target demo)
+set(build_target py3lib)
+```
+
+```bash
+mkdir build
+cd build && cmake .. && make
+cp ./_tinyre.so ../lib_py3
+
+cd ../lib_py3
+python3
+```
+
+```Python
+import tre
+tre.match("^(bb)*a", "bbbbabc")
+```
+
 
 ## Doc
 
