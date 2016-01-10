@@ -362,6 +362,11 @@ int try_backtracking(VMState* vms) {
 
         tmp = vms->snap;
         vms->snap = vms->snap->prev;
+        for (int i=0; i<vms->group_num; i++) {
+            if (vms->match_results[i].head && vms->match_results[i].head > vms->snap->str_pos) {
+                vms->match_results[i].head = NULL;
+            }
+        }
         snap_free(tmp);
         greed = vms->snap->mr.enable == 1 ? true : false;
 
@@ -420,7 +425,7 @@ int do_ins_checkpoint(VMState* vms, bool greed) {
 
 _INLINE static
 int do_ins_save_snap(VMState* vms) {
-    int* tmp;
+    uint32_t* tmp;
     tmp = vms->snap->codes;
     // group start + offset + length of group_end
     vms->snap->codes = vms->groups[vms->snap->cur_group].codes + *(vms->snap->codes + 1) + 2;
