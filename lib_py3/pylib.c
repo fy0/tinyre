@@ -11,10 +11,10 @@ void trepy_pattern_free(PyObject* obj)
 static PyObject* trepy_compile(PyObject *self, PyObject* args)
 {
     char* re;
-    char flag;
+    int flag;
     int err_code;
 
-    if(!PyArg_ParseTuple(args, "sb", &re, &flag)) {
+    if(!PyArg_ParseTuple(args, "si", &re, &flag)) {
         Py_INCREF(Py_None);
         return Py_None;
     }

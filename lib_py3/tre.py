@@ -14,6 +14,8 @@ class error(Exception):
 class TRE_Pattern:
     @classmethod
     def __new_pattern__(self, pattern, flags=0):
+        if flags > I|M|S:
+            flags = (flags & I) | (flags & M) | (flags & S)
         ret = _tinyre._compile(pattern, flags)
         if type(ret) == int:
             raise error(ret)
