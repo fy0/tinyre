@@ -242,7 +242,7 @@ int do_ins_cmp_group(VMState* vms) {
     }
 
     // new cache
-    stack_check(vms->snap->run_cache, RunCache, vms->snap->run_cache.len);
+    stack_check(vms->snap->run_cache, RunCache, 5 + vms->snap->run_cache.len);
     rc = stack_push(vms->snap->run_cache, RunCache);
     rc->codes_cache = vms->snap->codes;
     rc->mr = vms->snap->mr;
@@ -565,7 +565,7 @@ VMState* vm_init(tre_Pattern* groups_info, const char* input_str, int backtrack_
     vms->snap->cur_group = 0;
     vms->snap->text_end = false;
     memset(&vms->snap->mr, 0, sizeof(MatchRepeat));
-    stack_init(vms->snap->run_cache, RunCache, 5);
+    stack_init(vms->snap->run_cache, RunCache, 0);
     vms->snap->prev = NULL;
     return vms;
 }

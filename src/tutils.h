@@ -40,12 +40,12 @@ typedef struct tre_Stack {
 } tre_Stack;
 
 
-#define stack_init(_s, _type, _len) { (_s).data = _new(_type, _len); (_s).top = -1; (_s).len = _len; }
+#define stack_init(_s, _type, _len) { (_s).data = _len ? _new(_type, _len) : NULL; (_s).top = -1; (_s).len = _len; }
 #define stack_get_top(_s, _type) ((_type*)(_s.data) + _s.top)
 #define stack_empty(_s) (_s.top == -1)
 #define stack_push(_s, _type) ((_type*)(_s.data) + ++(_s.top))
 #define stack_pop(_s, _type) ((_type*)((_s).data) + ((_s).top)--)
-#define stack_check(_s, _type, _step) if (_s.top == _s.len) { _s.len += _step; realloc(_s.data, sizeof(_type) * _s.len);}
+#define stack_check(_s, _type, _step) if (_s.top == _s.len || _s.len == 0) { _s.len += _step; _s.data = _s.data ? realloc(_s.data, sizeof(_type) * _s.len) : _new(_type, _s.len);}
 #define stack_free(_s) free((_s).data);
 #define stack_copy(_s, _dest, _type) { (_dest).data = _new(_type, (_s).len);memcpy((_dest).data, (_s).data, sizeof(_type) * (_s).len); }
 
