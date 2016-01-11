@@ -9,8 +9,8 @@ set(build_target demo)
 cmake_policy(SET CMP0015 OLD)
 
 if (MSVC)
-    set(CMAKE_GENERATOR_TOOLSET "v120_xp" CACHE STRING "Platform Toolset" FORCE) 
-    set(CMAKE_VS_PLATFORM_TOOLSET "v120_xp" CACHE STRING "Platform Toolset" FORCE)
+    #set(CMAKE_GENERATOR_TOOLSET "v120_xp" CACHE STRING "Platform Toolset" FORCE) 
+    #set(CMAKE_VS_PLATFORM_TOOLSET "v120_xp" CACHE STRING "Platform Toolset" FORCE)
 endif(MSVC)
 
 macro(source_group_by_dir source_files)
@@ -37,6 +37,7 @@ if (MSVC)
 else(MSVC)
     set(CMAKE_C_FLAGS "-std=c99")
     set(CMAKE_C_FLAGS_DEBUG "-g")
+    set(CMAKE_CXX_FLAGS_RELEASE "-O2")
 endif(MSVC)
 
 add_definitions(-DUNICODE -D_UNICODE)
