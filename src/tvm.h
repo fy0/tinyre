@@ -55,7 +55,7 @@ typedef struct VMSnap {
     int cur_group;
     bool text_end;
     MatchRepeat mr;
-    RunCache* run_cache;
+    tre_Stack run_cache;
     struct VMSnap* prev;
 } VMSnap;
 

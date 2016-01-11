@@ -7,35 +7,14 @@
 _INLINE static
 VMSnap* snap_dup(VMSnap* src) {
     VMSnap* snap = _new(VMSnap, 1);
-    RunCache *rc, *rc_src;
     memcpy(snap, src, sizeof(VMSnap));
-
-    if (src->run_cache) {
-        snap->run_cache = rc = _new(RunCache, 1);
-        for (rc_src = src->run_cache; rc_src; rc_src = rc_src->prev) {
-            rc->codes_cache = rc_src->codes_cache;
-            rc->mr = rc_src->mr;
-            rc->cur_group = rc_src->cur_group;
-            rc->prev = rc_src->prev ? _new(RunCache, 1) : NULL;
-            rc = rc->prev;
-        }
-    } else {
-        snap->run_cache = NULL;
-    }
-
+    stack_copy(src->run_cache, snap->run_cache, RunCache);
     return snap;
 }
 
 _INLINE static
 void snap_free(VMSnap* snap) {
-    RunCache *rc, *rc2;
-    if (snap->run_cache) {
-        for (rc = snap->run_cache; rc;) {
-            rc2 = rc;
-            rc = rc->prev;
-            free(rc2);
-        }
-    }
+    stack_free(snap->run_cache);
     free(snap);
 }
 
@@ -263,14 +242,13 @@ int do_ins_cmp_group(VMState* vms) {
     }
 
     // new cache
-    rc = _new(RunCache, 1);
+    stack_check(vms->snap->run_cache, RunCache, vms->snap->run_cache.len);
+    rc = stack_push(vms->snap->run_cache, RunCache);
     rc->codes_cache = vms->snap->codes;
-    rc->prev = vms->snap->run_cache;
     rc->mr = vms->snap->mr;
     rc->cur_group = vms->snap->cur_group;
 
     // load group code
-    vms->snap->run_cache = rc;
     vms->snap->codes = g->codes;
     vms->snap->mr.enable = 0;
     vms->snap->cur_group = index;
@@ -304,13 +282,11 @@ int do_ins_group_end(VMState* vms) {
 #endif
 
     // load cache
-    rc = vms->snap->run_cache;
-    if (rc) {
+    if (!stack_empty(vms->snap->run_cache)) {
+        rc = stack_pop(vms->snap->run_cache, RunCache);
         vms->snap->codes = rc->codes_cache;
-        vms->snap->run_cache = rc->prev;
         vms->snap->mr = rc->mr;
         vms->snap->cur_group = rc->cur_group;
-        free(rc);
     }
 
     // works for special groups (?=) (?!) (?<=) (?<!)
@@ -589,7 +565,7 @@ VMState* vm_init(tre_Pattern* groups_info, const char* input_str, int backtrack_
     vms->snap->cur_group = 0;
     vms->snap->text_end = false;
     memset(&vms->snap->mr, 0, sizeof(MatchRepeat));
-    vms->snap->run_cache = NULL;
+    stack_init(vms->snap->run_cache, RunCache, 5);
     vms->snap->prev = NULL;
     return vms;
 }
@@ -627,15 +603,9 @@ tre_GroupResult* vm_exec(VMState* vms) {
 void vm_free(VMState* vms)
 {
     VMSnap *snap, *snap_tmp;
-    RunCache *rc, *rc_tmp;
 
     for (snap = vms->snap; snap;) {
-        for (rc = snap->run_cache; rc; ) {
-            rc_tmp = rc;
-            rc = rc->prev;
-            free(rc_tmp);
-        }
-
+        stack_free(snap->run_cache)
         snap_tmp = snap;
         snap = snap->prev;
         free(snap_tmp);
