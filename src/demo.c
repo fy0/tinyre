@@ -7,8 +7,9 @@
  *
  */
 
-#include <stdio.h>
-#include <stdbool.h>
+#include "tutils.h"
+#include "tdebug.h"
+
 #include "tinyre.h"
 
 

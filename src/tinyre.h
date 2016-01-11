@@ -67,5 +67,8 @@ tre_Match* tre_match(tre_Pattern* tp, const char* str, int backtrack_limit);
 void tre_pattern_free(tre_Pattern *ptn);
 void tre_match_free(tre_Match *m);
 
+/* 其他 */
+void tre_err(int err_code);
+
 #endif
 
