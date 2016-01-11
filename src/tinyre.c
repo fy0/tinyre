@@ -70,10 +70,9 @@ tre_Pattern* tre_compile(char* s, int flag, int* err_code) {
         return NULL;
     }
 
-    groups = tre_parser(tki, &last_token);
+    groups = tre_parser(tki, &last_token, &ret);
 
     if (groups == NULL) {
-        ret = tre_last_parser_error();
         *err_code = ret;
     } else {
         groups->flag = flag | tki->extra_flag;
