@@ -73,6 +73,7 @@ typedef struct VMState {
     uint32_t** input_cache;
     GroupResultTemp* match_results;
     VMSnap* snap;
+    VMSnap* snap_used;
 } VMState;
 
 VMState* vm_init(tre_Pattern* groups, const char* input_str, int backtrack_limit);

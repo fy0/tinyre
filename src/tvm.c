@@ -8,7 +8,12 @@ _INLINE static
 VMSnap* snap_dup(VMSnap* src) {
     VMSnap* snap = _new(VMSnap, 1);
     memcpy(snap, src, sizeof(VMSnap));
-    stack_copy(src->run_cache, snap->run_cache, RunCache);
+    if (!stack_empty(src->run_cache)) {
+        stack_copy(src->run_cache, snap->run_cache, RunCache);
+    } else {
+        snap->run_cache.len = 0;
+        snap->run_cache.data = NULL;
+    }
     return snap;
 }
 
@@ -17,6 +22,20 @@ void snap_free(VMSnap* snap) {
     stack_free(snap->run_cache);
     free(snap);
 }
+
+_INLINE static
+void cache_old_snap(VMState* vms, VMSnap* snap) {
+    snap->prev = (vms->snap_used) ? vms->snap_used : NULL;
+    vms->snap_used = snap;
+}
+
+_INLINE static
+VMSnap* get_cached_snap(VMState* vms) {
+    VMSnap *tmp = vms->snap_used;
+    if (tmp) vms->snap_used = tmp->prev;
+    return tmp;
+}
+
 
 void vm_check_text_end(VMState* vms) {
     if (vms->snap->str_pos == (vms->input_str + vms->input_len)) {
@@ -190,7 +209,25 @@ int do_ins_cmp_backref(VMState* vms) {
 _INLINE static
 void save_snap(VMState* vms) {
     TRE_DEBUG_PRINT("INS_SAVE_SNAP\n");
-    vms->snap->prev = snap_dup(vms->snap);
+    VMSnap* snap = get_cached_snap(vms);
+    if (snap) {
+        VMSnap *src = vms->snap;
+        tre_Stack rc = snap->run_cache;
+        memcpy(snap, src, sizeof(VMSnap));
+
+        if (rc.len < src->run_cache.top+1) {
+            free(rc.data);
+            rc.len = src->run_cache.top+1;
+            rc.data = _new(RunCache , rc.len);
+        }
+        rc.top = src->run_cache.top;
+        if (rc.top != -1) memcpy(rc.data, src->run_cache.data, sizeof(RunCache) * (src->run_cache.top+1));
+        snap->run_cache = rc;
+        //stack_copy(src->run_cache, snap->run_cache, RunCache);
+    } else {
+        snap = snap_dup(vms->snap);
+    }
+    vms->snap->prev = snap;
 }
 
 _INLINE static
@@ -241,7 +278,7 @@ int do_ins_cmp_group(VMState* vms) {
         vms->snap->chrcode = *vms->snap->str_pos;
     }
 
-    // new cache
+    // save cache
     stack_check(vms->snap->run_cache, RunCache, 5 + vms->snap->run_cache.len);
     rc = stack_push(vms->snap->run_cache, RunCache);
     rc->codes_cache = vms->snap->codes;
@@ -343,7 +380,7 @@ int try_backtracking(VMState* vms) {
                 vms->match_results[i].head = NULL;
             }
         }
-        snap_free(tmp);
+        cache_old_snap(vms, tmp);
         greed = vms->snap->mr.enable == 1 ? true : false;
 
         if (greed) TRE_DEBUG_PRINT("INS_BACKTRACK\n");
@@ -567,6 +604,7 @@ VMState* vm_init(tre_Pattern* groups_info, const char* input_str, int backtrack_
     memset(&vms->snap->mr, 0, sizeof(MatchRepeat));
     stack_init(vms->snap->run_cache, RunCache, 0);
     vms->snap->prev = NULL;
+    vms->snap_used = NULL;
     return vms;
 }
 
@@ -605,6 +643,13 @@ void vm_free(VMState* vms)
     VMSnap *snap, *snap_tmp;
 
     for (snap = vms->snap; snap;) {
+        stack_free(snap->run_cache)
+        snap_tmp = snap;
+        snap = snap->prev;
+        free(snap_tmp);
+    }
+
+    for (snap = vms->snap_used; snap;) {
         stack_free(snap->run_cache)
         snap_tmp = snap;
         snap = snap->prev;

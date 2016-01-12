@@ -32,16 +32,21 @@ class TRE_Pattern:
 
 
 class TRE_Match:
-    def __init__(self, text, data):
+    def __init__(self, match_text, data):
         groupspan = []
+        grouptext = []
         groupdict = {}
         for i in data:
-            info = i[1:]
+            name, a, b = i
+            span = (a, b)
+            text = match_text[a:b] if a is not None else None
             if i[0]:
-                groupdict[i[0]] = info
-            groupspan.append(info)
-        self.__text__ = text
-        self.__groupspan__ = groupspan
+                groupdict[i[0]] = (span, text)
+            groupspan.append(span)
+            grouptext.append(text)
+        self.__text__ = match_text
+        self.__groupspan__ = tuple(groupspan)
+        self.__grouptext__ = tuple(grouptext)
         self.__groupdict__ = groupdict
         self.lastindex = None
 
@@ -53,12 +58,10 @@ class TRE_Match:
                     self.lastindex = index
 
     def __get_text_by_index__(self, i):
-        a, b = self.__groupspan__[i]
-        return self.__text__[a:b]
+        return self.__grouptext__[i]
 
     def __get_text_by_name__(self, i):
-        a, b = self.__groupdict__[i]
-        return self.__text__[a:b]
+        return self.__groupdict__[i][1]
 
     def span(self, index=0):
         a, b = self.__groupspan__[index]
@@ -82,20 +85,12 @@ class TRE_Match:
             return tuple(ret)
 
     def groups(self):
-        ret = []
-        for i in self.__groupspan__:
-            a, b = i
-            if a is None:
-                ret.append(None)
-            else:
-                ret.append(self.__text__[a:b])
-        return tuple(ret[1:])
+        return self.__grouptext__[1:]
 
     def groupdict(self):
         ret = {}
         for k, v in self.__groupdict__.items():
-            a, b = v
-            ret[k] = self.__text__[a:b] if a != -1 else None
+            ret[k] = v[1]
         return ret
 
     def start(self, index=0):
