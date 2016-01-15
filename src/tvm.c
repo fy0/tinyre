@@ -38,30 +38,33 @@ VMSnap* get_cached_snap(VMState* vms) {
 
 
 void vm_check_text_end(VMState* vms) {
-    if (vms->snap->str_pos == (vms->input_str + vms->input_len)) {
-        if (!vms->snap->text_end) vms->snap->text_end = true;
-    } else {
-        if (vms->snap->text_end) vms->snap->text_end = false;
+    VMSnap* snap = vms->snap;
+    if (snap->str_pos == (vms->input_str + vms->input_len)) {
+        if (!snap->text_end) snap->text_end = true;
+    } else {      
+        if (snap->text_end) snap->text_end = false;
     }
 }
 
 bool vm_input_next(VMState* vms) {
-    vms->snap->str_pos++;
-    vms->snap->chrcode = *vms->snap->str_pos;
+    VMSnap* snap = vms->snap;
+    snap->str_pos++;
+    snap->chrcode = *snap->str_pos;
     return true;
 }
 
 _INLINE static
 int jump_one_cmp(VMState* vms) {
     int num;
-    int ins = *vms->snap->codes;
+    VMSnap* snap = vms->snap;
+    int ins = *snap->codes;
 
     if (ins >= ins_cmp && ins <= ins_cmp_group) {
         if (ins >= ins_cmp_multi && ins <= ins_ncmp_multi) {
-            num = *(vms->snap->codes + 1);
-            vms->snap->codes += (num * 3 + 2);
+            num = *(snap->codes + 1);
+            snap->codes += (num * 3 + 2);
         } else {
-            vms->snap->codes += 2;
+            snap->codes += 2;
         }
     }
     return 1;
@@ -78,17 +81,18 @@ char_cmp(uint32_t chrcode_re, uint32_t chrcode, int flag) {
 
 _INLINE static
 int do_ins_cmp(VMState* vms) {
-    uint32_t char_code = *(vms->snap->codes + 1);
+    VMSnap* snap = vms->snap;
+    uint32_t char_code = *(snap->codes + 1);
 
 #ifdef TRE_DEBUG
     printf_u8("INS_CMP ");
     putcode(char_code);
     printf(" ");
-    putcode(vms->snap->chrcode);
+    putcode(snap->chrcode);
     putchar('\n');
 #endif
-    if (vms->snap->text_end) return 0;
-    if (char_cmp(char_code, vms->snap->chrcode, vms->flag))
+    if (snap->text_end) return 0;
+    if (char_cmp(char_code, snap->chrcode, vms->flag))
         return 2;
     return 0;
 }
@@ -113,12 +117,13 @@ char_cmp_spe(uint32_t chrcode_re, uint32_t chrcode, int flag) {
 
 _INLINE static
 int do_ins_cmp_spe(VMState* vms) {
-    uint32_t char_code = *(vms->snap->codes + 1);
+    VMSnap* snap = vms->snap;
+    uint32_t char_code = *(snap->codes + 1);
 
     TRE_DEBUG_PRINT("INS_CMP_SPE\n");
 
-    if (vms->snap->text_end) return 0;
-    if (char_cmp_spe(char_code, vms->snap->chrcode, vms->flag)) {
+    if (snap->text_end) return 0;
+    if (char_cmp_spe(char_code, snap->chrcode, vms->flag)) {
         return 2;
     }
     return 0;
@@ -141,29 +146,30 @@ int do_ins_cmp_multi(VMState* vms, bool is_ncmp) {
     int i;
     uint32_t _type, _code;
     bool match = false;
-    uint32_t* data = vms->snap->codes + 1;
+    VMSnap* snap = vms->snap;
+    uint32_t* data = snap->codes + 1;
     int num = *data++;
 
     TRE_DEBUG_PRINT("INS_CMP_MULTI\n");
 
-    if (vms->snap->text_end) return 0;
+    if (snap->text_end) return 0;
 
     for (i = 0; i < num; i++) {
         _type = *(data + i * 3);
         _code = *(data + i * 3 + 1);
 
         if (_type == TK_CHAR) {
-            if (char_cmp(_code, vms->snap->chrcode, vms->flag)) {
+            if (char_cmp(_code, snap->chrcode, vms->flag)) {
                 match = true;
                 break;
             }
         } else if (_type == TK_SPE_CHAR) {
-            if (char_cmp_spe(_code, vms->snap->chrcode, vms->flag)) {
+            if (char_cmp_spe(_code, snap->chrcode, vms->flag)) {
                 match = true;
                 break;
             }
         } else if (_type == '-') {
-            if (char_cmp_range(_code, *((int*)data + i * 3 + 2), vms->snap->chrcode, vms->flag)) {
+            if (char_cmp_range(_code, *((int*)data + i * 3 + 2), snap->chrcode, vms->flag)) {
                 match = true;
                 break;
             }
@@ -188,9 +194,9 @@ int do_ins_cmp_backref(VMState* vms) {
         return 0;
 
     if (vms->match_results[index].head && vms->match_results[index].tail) {
-        int *p = vms->match_results[index].head;
-        int *tail = vms->match_results[index].tail;
-        int *p2 = vms->snap->str_pos;
+        uint32_t *p = vms->match_results[index].head;
+        uint32_t *tail = vms->match_results[index].tail;
+        uint32_t *p2 = vms->snap->str_pos;
 
         while (p < tail) {
             if (!char_cmp(*p, *p2, vms->flag)) return 0;
@@ -232,16 +238,18 @@ void save_snap(VMState* vms) {
 
 _INLINE static
 int do_ins_jmp(VMState* vms) {
-    int offset = *(vms->snap->codes + 1);
+    VMSnap* snap = vms->snap;
+    int offset = *(snap->codes + 1);
     TRE_DEBUG_PRINT("INS_JMP\n");
-    vms->snap->codes = vms->groups[vms->snap->cur_group].codes + offset + 2;
+    snap->codes = vms->groups[snap->cur_group].codes + offset + 2;
     return 1;
 }
 
 _INLINE static
 int do_ins_cmp_group(VMState* vms) {
     RunCache *rc;
-    int index = *(vms->snap->codes + 1);
+    VMSnap* snap = vms->snap;
+    int index = *(snap->codes + 1);
     MatchGroup* g = vms->groups + index;
 
 #ifdef TRE_DEBUG
@@ -250,57 +258,57 @@ int do_ins_cmp_group(VMState* vms) {
 
     // works for special groups (?=) (?!) (?<=) (?<!)
     if (g->type == GT_IF_MATCH) {
-        vms->input_cache[index - vms->group_num] = vms->snap->str_pos;
+        vms->input_cache[index - vms->group_num] = snap->str_pos;
     } else if (g->type == GT_IF_NOT_MATCH || g->type == GT_IF_NOT_PRECEDED_BY) {
-        if (vms->snap->mr.enable == 1) {
+        if (snap->mr.enable == 1) {
             save_snap(vms);
         } else {
-            vms->snap->codes += 2;
+            snap->codes += 2;
             save_snap(vms);
-            vms->snap->codes -= 2;
+            snap->codes -= 2;
         }
 
         if (g->type == GT_IF_NOT_PRECEDED_BY) {
             // current matched length less than group's length
-            if (vms->snap->str_pos - vms->input_str < g->extra) {
+            if (snap->str_pos - vms->input_str < g->extra) {
                 return 0;
             }
-            vms->snap->str_pos = vms->snap->str_pos - g->extra;
-            vms->snap->chrcode = *vms->snap->str_pos;
+            snap->str_pos = snap->str_pos - g->extra;
+            snap->chrcode = *snap->str_pos;
         }
     } else if (g->type == GT_IF_PRECEDED_BY) {
         // current matched length less than group's length
-        if (vms->snap->str_pos - vms->input_str < g->extra) {
+        if (snap->str_pos - vms->input_str < g->extra) {
             return 0;
         }
-        vms->input_cache[index - vms->group_num] = vms->snap->str_pos;
-        vms->snap->str_pos = vms->snap->str_pos - g->extra;
-        vms->snap->chrcode = *vms->snap->str_pos;
+        vms->input_cache[index - vms->group_num] = snap->str_pos;
+        snap->str_pos = snap->str_pos - g->extra;
+        snap->chrcode = *snap->str_pos;
     }
 
     // save cache
-    stack_check(vms->snap->run_cache, RunCache, 5 + vms->snap->run_cache.len);
-    rc = stack_push(vms->snap->run_cache, RunCache);
-    rc->codes_cache = vms->snap->codes;
-    rc->mr = vms->snap->mr;
-    rc->cur_group = vms->snap->cur_group;
+    stack_check(snap->run_cache, RunCache, 5 + snap->run_cache.len);
+    rc = stack_push(snap->run_cache, RunCache);
+    rc->codes_cache = snap->codes;
+    rc->mr = snap->mr;
+    rc->cur_group = snap->cur_group;
 
     // load group code
-    vms->snap->codes = g->codes;
-    vms->snap->mr.enable = 0;
-    vms->snap->cur_group = index;
+    snap->codes = g->codes;
+    snap->mr.enable = 0;
+    snap->cur_group = index;
 
     // code for conditional backref
     if (g->type == GT_BACKREF_CONDITIONAL) {
         if (vms->match_results[g->extra].head && vms->match_results[g->extra].tail) {
-            vms->snap->codes += 2;
+            snap->codes += 2;
         }
     }
     // end
 
     // set match result, value of head
     if (index < vms->group_num_all) {
-        vms->match_results[index].tmp = vms->snap->str_pos;
+        vms->match_results[index].tmp = snap->str_pos;
     }
 
     return 1;
@@ -309,42 +317,44 @@ int do_ins_cmp_group(VMState* vms) {
 _INLINE static
 int do_ins_group_end(VMState* vms) {
     RunCache *rc;
-    int index = *(vms->snap->codes + 1);
-    if (index == -1) index = vms->snap->cur_group;
+    VMSnap* snap = vms->snap;
+    int index = *(snap->codes + 1);
+    if (index == -1) index = snap->cur_group;
     MatchGroup* g = vms->groups + index;
     VMSnap* snap_tmp;
 
 #ifdef TRE_DEBUG
-    printf("INS_GROUP_END %d\n", *(vms->snap->codes + 1));
+    printf("INS_GROUP_END %d\n", *(snap->codes + 1));
 #endif
 
     // load cache
-    if (!stack_empty(vms->snap->run_cache)) {
-        rc = stack_pop(vms->snap->run_cache, RunCache);
-        vms->snap->codes = rc->codes_cache;
-        vms->snap->mr = rc->mr;
-        vms->snap->cur_group = rc->cur_group;
+    if (!stack_empty(snap->run_cache)) {
+        rc = stack_pop(snap->run_cache, RunCache);
+        snap->codes = rc->codes_cache;
+        snap->mr = rc->mr;
+        snap->cur_group = rc->cur_group;
     }
 
     // works for special groups (?=) (?!) (?<=) (?<!)
     if (g->type == GT_IF_MATCH || g->type == GT_IF_PRECEDED_BY) {
-        vms->snap->str_pos = vms->input_cache[index - vms->group_num];
-        vms->snap->chrcode = *vms->snap->str_pos;
+        snap->str_pos = vms->input_cache[index - vms->group_num];
+        snap->chrcode = *snap->str_pos;
     } else if (g->type == GT_IF_NOT_MATCH || g->type == GT_IF_NOT_PRECEDED_BY) {
-        uint32_t* next_ins = vms->snap->codes + 2;
-        if (vms->snap->mr.enable == 1) next_ins -= 2;
+        uint32_t* next_ins = snap->codes + 2;
+        if (snap->mr.enable == 1) next_ins -= 2;
         do {
-            snap_tmp = vms->snap;
-            vms->snap = vms->snap->prev;
+            snap_tmp = snap;
+            snap = snap->prev;
             free(snap_tmp);
-        } while (vms->snap->codes != next_ins);
+        } while (snap->codes != next_ins);
+        vms->snap = snap;
         return 0;
     }
 
     // set match result
     if (index < vms->group_num_all) {
         vms->match_results[index].head = vms->match_results[index].tmp;
-        vms->match_results[index].tail = vms->snap->str_pos;
+        vms->match_results[index].tail = snap->str_pos;
     }
 
     // end if GROUP(0) matched
@@ -364,7 +374,8 @@ int backtracking_length(VMState* vms) {
 
 _INLINE static
 int try_backtracking(VMState* vms) {
-    if (vms->snap->prev) {
+    VMSnap* snap = vms->snap;
+    if (snap->prev) {
         bool greed;
         VMSnap* tmp;
 
@@ -373,21 +384,22 @@ int try_backtracking(VMState* vms) {
         }
         vms->backtrack_num += 1;
 
-        tmp = vms->snap;
-        vms->snap = vms->snap->prev;
+        tmp = snap;
+        snap = snap->prev;
+        vms->snap = snap;
         for (int i=0; i<vms->group_num; i++) {
-            if (vms->match_results[i].head && vms->match_results[i].head > vms->snap->str_pos) {
+            if (vms->match_results[i].head && vms->match_results[i].head > snap->str_pos) {
                 vms->match_results[i].head = NULL;
             }
         }
         cache_old_snap(vms, tmp);
-        greed = vms->snap->mr.enable == 1 ? true : false;
+        greed = snap->mr.enable == 1 ? true : false;
 
         if (greed) TRE_DEBUG_PRINT("INS_BACKTRACK\n");
         else TRE_DEBUG_PRINT("INS_BACKTRACK_NG\n");
 
         if (greed) {
-            vms->snap->mr.enable = 0;
+            snap->mr.enable = 0;
             return jump_one_cmp(vms);
         }
         return 1;
@@ -398,13 +410,14 @@ int try_backtracking(VMState* vms) {
 
 _INLINE static
 int do_ins_checkpoint(VMState* vms, bool greed) {
-    int llimit = *(vms->snap->codes + 1);
-    int rlimit = *(vms->snap->codes + 2);
+    VMSnap* snap = vms->snap;
+    int llimit = *(snap->codes + 1);
+    int rlimit = *(snap->codes + 2);
 
     if (greed) TRE_DEBUG_PRINT("INS_CHECK_POINT\n");
     else TRE_DEBUG_PRINT("INS_CHECK_POINT_NG\n");
 
-    vms->snap->codes += 3;
+    snap->codes += 3;
 
     // a{0,0}
     if (rlimit == 0) {
@@ -417,10 +430,10 @@ int do_ins_checkpoint(VMState* vms, bool greed) {
         return -2;
     }
 
-    vms->snap->mr.enable = greed ? 1 : 2;
-    vms->snap->mr.llimit = llimit;
-    vms->snap->mr.rlimit = rlimit;
-    vms->snap->mr.cur_repeat = 0;
+    snap->mr.enable = greed ? 1 : 2;
+    snap->mr.llimit = llimit;
+    snap->mr.rlimit = rlimit;
+    snap->mr.cur_repeat = 0;
 
     // save snap when reach llimit
     if (llimit == 0) {
@@ -450,7 +463,8 @@ int do_ins_save_snap(VMState* vms) {
 
 int vm_step(VMState* vms) {
     int ret;
-    uint32_t cur_ins = *vms->snap->codes;
+    VMSnap* snap = vms->snap;
+    uint32_t cur_ins = *snap->codes;
     vm_check_text_end(vms);
 
     if (cur_ins >= ins_cmp && cur_ins <= ins_group_end) {
@@ -470,7 +484,7 @@ int vm_step(VMState* vms) {
         } else if (cur_ins == ins_cmp_group) {
             ret = do_ins_cmp_group(vms);
         } else if (cur_ins == ins_group_end) {
-            group_cache = vms->snap->cur_group;
+            group_cache = snap->cur_group;
             ret = do_ins_group_end(vms);
         }
 
@@ -483,42 +497,42 @@ int vm_step(VMState* vms) {
             // Other CMPs is both begin and end of one match.
             if (cur_ins != ins_cmp_group) {
                 // match again when a? a+ a* a{x,y}
-                if (vms->snap->mr.enable) {
-                    bool greed = vms->snap->mr.enable == 1 ? true : false;
-                    vms->snap->mr.cur_repeat++;
+                if (snap->mr.enable) {
+                    bool greed = snap->mr.enable == 1 ? true : false;
+                    snap->mr.cur_repeat++;
 
                     if (greed) {
                         // 贪婪模式 达到左边界，有资格保存回溯
-                        if (vms->snap->mr.cur_repeat >= vms->snap->mr.llimit && vms->snap->mr.llimit != vms->snap->mr.rlimit) {
+                        if (snap->mr.cur_repeat >= snap->mr.llimit && snap->mr.llimit != snap->mr.rlimit) {
                             save_snap(vms);
                         }
                         // 达到右边界，越过匹配指令，跳出循环
-                        if (vms->snap->mr.cur_repeat == vms->snap->mr.rlimit) {
-                            vms->snap->mr.enable = 0;
-                            vms->snap->codes += ret;
+                        if (snap->mr.cur_repeat == snap->mr.rlimit) {
+                            snap->mr.enable = 0;
+                            snap->codes += ret;
                         }
                         // 特别的，匹配空串的组被强制跳过
-                        if ((cur_ins == ins_group_end) && (vms->snap->mr.cur_repeat >= vms->snap->mr.llimit) &&
-                                (vms->snap->mr.cur_repeat != vms->snap->mr.rlimit)) {
+                        if ((cur_ins == ins_group_end) && (snap->mr.cur_repeat >= snap->mr.llimit) &&
+                                (snap->mr.cur_repeat != snap->mr.rlimit)) {
                             // match "nothing" is no sense : (|)
                             if (vms->match_results[group_cache].head == vms->match_results[group_cache].tail) {
-                                vms->snap->mr.enable = 0;
-                                vms->snap->codes += 2;
+                                snap->mr.enable = 0;
+                                snap->codes += 2;
                             }
                         }
                     } else {
-                        if (vms->snap->mr.cur_repeat >= vms->snap->mr.llimit) {
-                            if (((cur_ins != ins_group_end) && (vms->snap->mr.cur_repeat != vms->snap->mr.rlimit)) ||
-                                ((cur_ins == ins_group_end) && (vms->snap->mr.cur_repeat != vms->snap->mr.rlimit) && 
+                        if (snap->mr.cur_repeat >= snap->mr.llimit) {
+                            if (((cur_ins != ins_group_end) && (snap->mr.cur_repeat != snap->mr.rlimit)) ||
+                                ((cur_ins == ins_group_end) && (snap->mr.cur_repeat != snap->mr.rlimit) && 
                                  (vms->match_results[group_cache].head != vms->match_results[group_cache].tail))) {
                                 save_snap(vms);
                             }
-                            vms->snap->mr.enable = 0;
-                            vms->snap->codes += ret;
+                            snap->mr.enable = 0;
+                            snap->codes += ret;
                         }
                     }
                 } else {
-                    vms->snap->codes += ret;
+                    snap->codes += ret;
                 }
             }
         } else {
@@ -536,8 +550,8 @@ int vm_step(VMState* vms) {
         // ^
         // Tip for multiline: \n is newline, \r is nothing, tested.
         TRE_DEBUG_PRINT("INS_MATCH_START\n");
-        if (vms->snap->str_pos == vms->input_str || ((vms->flag & FLAG_MULTILINE) && (*(vms->snap->str_pos - 1) == '\n'))) {
-            vms->snap->codes += 1;
+        if (snap->str_pos == vms->input_str || ((vms->flag & FLAG_MULTILINE) && (*(snap->str_pos - 1) == '\n'))) {
+            snap->codes += 1;
             ret = 1;
         } else {
             ret = try_backtracking(vms);
@@ -545,8 +559,8 @@ int vm_step(VMState* vms) {
     } else if (cur_ins == ins_match_end) {
         // $
         TRE_DEBUG_PRINT("INS_MATCH_END\n");
-        if (vms->snap->text_end || ((vms->flag & FLAG_MULTILINE) && (vms->snap->chrcode == '\n'))) {
-            vms->snap->codes += 1;
+        if (snap->text_end || ((vms->flag & FLAG_MULTILINE) && (snap->chrcode == '\n'))) {
+            snap->codes += 1;
             ret = 1;
         } else {
             ret = try_backtracking(vms);
