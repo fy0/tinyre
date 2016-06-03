@@ -299,7 +299,7 @@ int do_ins_cmp_group(VMState* vms) {
     snap->cur_group = index;
 
     // code for conditional backref
-    if (g->type == GT_BACKREF_CONDITIONAL) {
+    if (g->type == GT_BACKREF_CONDITIONAL_INDEX) {
         if (vms->match_results[g->extra].head && vms->match_results[g->extra].tail) {
             snap->codes += 2;
         }

@@ -448,6 +448,7 @@ int read_tokens(char* s, tre_Token* tokens, TokenListInfo** ptki) {
     token_info->extra_flag = extra_flag;
     token_info->max_normal_group_num = max_normal_group_num;
     token_info->token_num = pt - tokens;
+    token_info->group_names = NULL;
     *ptki = token_info;
 
     return pt - tokens;
