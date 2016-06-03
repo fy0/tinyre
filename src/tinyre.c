@@ -54,7 +54,7 @@ void tre_err(int err_code) {
 tre_Pattern* tre_compile(char* s, int flag, int* err_code) {
     int ret;
     tre_Token *last_token;
-    TokenInfo* tki;
+    TokenListInfo* tki;
     tre_Pattern* groups;
 
     ret = tre_lexer(s, &tki);

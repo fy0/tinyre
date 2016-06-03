@@ -6,20 +6,20 @@
 
 void debug_token_print(tre_Token* tokens, int len) {
     for (tre_Token *p = tokens; p != tokens + len; p++) {
-        printf("%8d %12d ", p->token, p->code);
+        printf("%8d %12d ", p->token, p->info.code);
         if (p->token < FIRST_TOKEN) {
             printf("T ");
             putchar(p->token);
         } else {
             if (p->token == TK_CHAR) {
                 printf("C ");
-                putcode(p->code);
+                putcode(p->info.code);
             } else if (p->token == TK_SPE_CHAR) {
                 printf("S ");
-                if (p->code != '.') putchar('\\');
-                putcode(p->code);
+                if (p->info.code != '.') putchar('\\');
+                putcode(p->info.code);
             } else if (p->token == TK_BACK_REF) {
-                printf("R %d\n", p->code);
+                printf("R %d\n", p->info.code);
             }
         }
         putchar('\n');
@@ -34,7 +34,8 @@ void debug_ins_list_print(ParserMatchGroup* groups) {
         if (gnum == 0) printf_u8("\nInstructions : Group 0\n");
         else {
             printf_u8("\nInstructions : Group %d (%d)", gnum, g->group_type);
-            if (g->group_type == GT_IF_PRECEDED_BY || g->group_type == GT_IF_NOT_PRECEDED_BY || g->group_type == GT_BACKREF_CONDITIONAL) {
+            if (g->group_type == GT_IF_PRECEDED_BY || g->group_type == GT_IF_NOT_PRECEDED_BY || g->group_type == GT_BACKREF_CONDITIONAL_INDEX 
+                    || g->group_type == GT_BACKREF_CONDITIONAL_GROUPNAME) {
                 printf_u8(" [%d]", g->group_extra);
             }
             putchar('\n');

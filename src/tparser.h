@@ -31,18 +31,17 @@ typedef struct ParserMatchGroup {
 typedef struct ParserInfo {
     int error_code;
     int avaliable_group;
+
+    TokenListInfo* tk_info;
     ParserMatchGroup* m_start;
     ParserMatchGroup* m_cur;
-
-    TokenInfo* tk_info;
-    TokenGroupName* tk_group_names;
 
     bool is_count_width;
     int match_width;
 } ParserInfo;
 
 tre_Pattern* compact_group(ParserMatchGroup* parser_groups);
-tre_Pattern* tre_parser(TokenInfo* _tki, tre_Token** last_token, int* perror_code);
+tre_Pattern* tre_parser(TokenListInfo* _tki, tre_Token** last_token, int* perror_code);
 
 // look-behind requires fixed-width pattern
 #define ERR_PARSER_REQUIRES_FIXED_WIDTH_PATTERN   -51

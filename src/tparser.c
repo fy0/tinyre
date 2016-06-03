@@ -21,7 +21,7 @@ tre_Token* parser_single_char(ParserInfo* pi, tre_Token* tk) {
         pi->m_cur->codes->ins = tk->token == TK_CHAR ? ins_cmp : ins_cmp_spe;
         pi->m_cur->codes->data = _new(uint32_t, 1);
         pi->m_cur->codes->len = 1;
-        *pi->m_cur->codes->data = tk->code;
+        *pi->m_cur->codes->data = tk->info.code;
         pi->m_cur->codes->next = _new(INS_List, 1);
         pi->m_cur->codes = pi->m_cur->codes->next;
         pi->m_cur->codes->next = NULL;
@@ -35,7 +35,7 @@ static _INLINE
 tre_Token* parser_char_set_test_single(ParserInfo* pi, tre_Token* tk) {
     paser_accept(tk->token == TK_CHAR || tk->token == TK_SPE_CHAR || tk->token == '-');
     if (tk->token == '-') {
-        tk->code = '-';
+        tk->info.code = '-';
         tk->token = TK_CHAR;
     }
     return tk + 1;
@@ -50,15 +50,15 @@ tre_Token* parser_char_set_test_range(ParserInfo* pi, tre_Token* tk) {
     tk++;
     // reset token
     if ((tk - 1)->token == '-') {
-        (tk - 1)->code = '-';
+        (tk - 1)->info.code = '-';
         (tk - 1)->token = TK_CHAR;
     }
     if ((tk - 3)->token == '-') {
-        (tk - 3)->code = '-';
+        (tk - 3)->info.code = '-';
         (tk - 3)->token = TK_CHAR;
     }
     // swap tk-2, tk-3 => [a-z] to [-az]
-    (tk - 2)->code = (tk - 3)->code;
+    (tk - 2)->info.code = (tk - 3)->info.code;
     (tk - 2)->token = TK_CHAR;
     (tk - 3)->token = '-';
     return tk;
@@ -74,7 +74,7 @@ tre_Token* parser_char_set(ParserInfo* pi, tre_Token* tk) {
     TRE_DEBUG_PRINT("CHAR_SET\n");
 
     paser_accept(tk->token == '[');
-    is_ncmp = (tk->code == 1) ? true : false;
+    is_ncmp = (tk->info.code == 1) ? true : false;
     tk++;
     check_token(tk);
     start = tk;
@@ -102,15 +102,15 @@ tre_Token* parser_char_set(ParserInfo* pi, tre_Token* tk) {
     for (; start != tk; start++) {
         *data = start->token;
         if (start->token == '-') {
-            *(data + 1) = (start+1)->code;
-            *(data + 2) = (start+2)->code;
-            if ((start + 2)->code < (start + 1)->code) {
+            *(data + 1) = (start+1)->info.code;
+            *(data + 2) = (start+2)->info.code;
+            if ((start + 2)->info.code < (start + 1)->info.code) {
                 pi->error_code = ERR_PARSER_BAD_CHARACTER_RANGE;
                 return NULL;
             }
             start += 2;
         } else {
-            *(data + 1) = start->code;
+            *(data + 1) = start->info.code;
         }
         data += 3;
     }
@@ -147,11 +147,11 @@ tre_Token* parser_other_tokens(ParserInfo* pi, tre_Token* tk) {
 
 tre_Token* parser_or(ParserInfo* pi, tre_Token* tk) {
     // try to catch a |
-    OR_List *or, *or2;
+    OR_List *or_list, *or2_list;
     paser_accept(tk->token == '|');
 
     // code for conditional backref
-    if (pi->m_cur->group_type >= GT_BACKREF_CONDITIONAL) {
+    if (pi->m_cur->group_type >= GT_BACKREF_CONDITIONAL_INDEX) {
         if (pi->m_cur->group_extra) {
             pi->error_code = ERR_PARSER_CONDITIONAL_BACKREF;
             return NULL;
@@ -160,18 +160,18 @@ tre_Token* parser_or(ParserInfo* pi, tre_Token* tk) {
     }
     // end
 
-    or = _new(OR_List, 1);
-    or->codes = pi->m_cur->codes;
-    or->next = NULL;
+    or_list = _new(OR_List, 1);
+    or_list->codes = pi->m_cur->codes;
+    or_list->next = NULL;
 
     if (pi->m_cur->or_list) {
-        or2 = pi->m_cur->or_list;
-        while (or2->next) {
-            or2 = or2->next;
+        or2_list = pi->m_cur->or_list;
+        while (or2_list->next) {
+            or2_list = or2_list->next;
         }
-        or2->next = or;
+        or2_list->next = or_list;
     } else {
-        pi->m_cur->or_list = or;
+        pi->m_cur->or_list = or_list;
     }
 
     // CODE GENERATE
@@ -195,7 +195,7 @@ tre_Token* parser_back_ref(ParserInfo* pi, tre_Token* tk) {
         pi->m_cur->codes->ins = ins_cmp_backref;
         pi->m_cur->codes->data = _new(uint32_t, 1);
         pi->m_cur->codes->len = 1;
-        *pi->m_cur->codes->data = tk->code;
+        *pi->m_cur->codes->data = tk->info.index;
         pi->m_cur->codes->next = _new(INS_List, 1);
         pi->m_cur->codes = pi->m_cur->codes->next;
         pi->m_cur->codes->next = NULL;
@@ -246,8 +246,8 @@ tre_Token* parser_block(ParserInfo* pi, tre_Token* tk) {
         } else if (tk->token == '{') {
             if ((tk + 1)->token == '}') {
                 ret += 2;
-                llimit = tk->code;
-                rlimit = (tk + 1)->code;
+                llimit = tk->info.index;
+                rlimit = (tk + 1)->info.index;
                 need_checkpoint = true;
             } else {
                 pi->error_code = ERR_PARSER_IMPOSSIBLE_TOKEN;
@@ -313,14 +313,14 @@ tre_Token* parser_group(ParserInfo* pi, tre_Token* tk) {
     TRE_DEBUG_PRINT("GROUP\n");
 
     paser_accept(tk->token == '(');
-    group_type = tk->code;
+    group_type = tk->info.code;
 
-    if (pi->tk_group_names && pi->tk_group_names->tk == tk) {
-        name = pi->tk_group_names->name;
+    if (pi->tk_info->group_names && pi->tk_info->group_names->tk == tk) {
+        name = pi->tk_info->group_names->name;
     }
 
     // code for back reference (?P=), backref group is not real group
-    if (group_type == GT_BACKREF) {
+    if (group_type == GT_BACKREF_CONDITIONAL_INDEX) {
         int i = 1;
         for (ParserMatchGroup* pg = pi->m_start->next; pg; pg = pg->next) {
             if (pg->name && (memcmp(name, pg->name, strlen(name)) == 0)) {
@@ -331,7 +331,7 @@ tre_Token* parser_group(ParserInfo* pi, tre_Token* tk) {
                 pi->m_cur->codes->next = _new(INS_List, 1);
                 pi->m_cur->codes = pi->m_cur->codes->next;
                 pi->m_cur->codes->next = NULL;
-                pi->tk_group_names = pi->tk_group_names->next;
+                pi->tk_info->group_names = pi->tk_info->group_names->next;
                 return tk + 1;
             }
             i++;
@@ -382,18 +382,18 @@ tre_Token* parser_group(ParserInfo* pi, tre_Token* tk) {
     pi->m_cur->codes->next = NULL;
 
     // code for conditional backref
-    if (group_type == GT_BACKREF_CONDITIONAL && (!name)) {
+    if (group_type == GT_BACKREF_CONDITIONAL_INDEX && (!name)) {
         // (?(0)...) is normal group
         group_type = pi->m_cur->group_type = 0;
     }
-    if (group_type >= GT_BACKREF_CONDITIONAL) {
+    if (group_type >= GT_BACKREF_CONDITIONAL_INDEX) {
         pi->m_cur->group_extra = 0; // flag
     }
     // end
 
     if (name) {
-        if (group_type == GT_NORMAL) pi->tk_group_names->name = NULL; // fix for mem free
-        pi->tk_group_names = pi->tk_group_names->next;
+        if (group_type == GT_NORMAL) pi->tk_info->group_names->name = NULL; // fix for mem free
+        pi->tk_info->group_names = pi->tk_info->group_names->next;
     }
 
     ret = tk;
@@ -412,7 +412,7 @@ tre_Token* parser_group(ParserInfo* pi, tre_Token* tk) {
     // end
 
     // code for conditional backref
-    if (group_type >= GT_BACKREF_CONDITIONAL) {
+    if (group_type >= GT_BACKREF_CONDITIONAL_INDEX) {
         if (name) {
             int i = 1;
             bool ok = false;
@@ -429,13 +429,13 @@ tre_Token* parser_group(ParserInfo* pi, tre_Token* tk) {
                 return NULL;
             }
         } else {
-            pi->m_cur->group_extra = group_type - GT_BACKREF_CONDITIONAL;
+            pi->m_cur->group_extra = group_type - GT_BACKREF_CONDITIONAL_INDEX;
             /* not an error
             if (m_cur->group_extra >= avaliable_group) {
                 error_code = ERR_PARSER_INVALID_GROUP_INDEX;
                 return NULL;
             }*/
-            pi->m_cur->group_type = GT_BACKREF_CONDITIONAL;
+            pi->m_cur->group_type = GT_BACKREF_CONDITIONAL_INDEX;
         }
 
         // without "no" branch
@@ -550,14 +550,14 @@ void parser_info_init(ParserInfo* pi) {
     pi->is_count_width = false;
 }
 
-tre_Pattern* tre_parser(TokenInfo* tki, tre_Token** last_token, int* perror_code) {
+tre_Pattern* tre_parser(TokenListInfo* tki, tre_Token** last_token, int* perror_code) {
     tre_Token *tokens;
     tre_Pattern *ret;
     ParserInfo *pi = _new(ParserInfo, 1);
 
     parser_info_init(pi);
     pi->tk_info = tki;
-    pi->tk_group_names = tki->group_names;
+    pi->tk_info->group_names = tki->group_names;
 
     ParserMatchGroup *m_cur, *m_start;
     m_cur = m_start = _new(ParserMatchGroup, 1);
@@ -628,7 +628,7 @@ tre_Pattern* compact_group(ParserMatchGroup* parser_groups) {
             for (code = pg->codes_start; true; code = code->next) {
                 while (or_lst && or_lst->codes == code) {
                     // code for conditional backref
-                    if (pg->group_type == GT_BACKREF_CONDITIONAL) {
+                    if (pg->group_type == GT_BACKREF_CONDITIONAL_INDEX) {
                         *data++ = ins_jmp;
                     // end
                     } else {
