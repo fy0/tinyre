@@ -101,7 +101,7 @@ uint32_t* utf8_to_ucs4_str(const char *s, int *plen) {
     uint32_t *buf = malloc((len+1) * sizeof(uint32_t));
 
     for (int i = 0; i < len;++i) {
-        p = utf8_decode(s, &code);
+        p = utf8_decode(p, &code);
         buf[i] = code;
     }
 

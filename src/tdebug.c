@@ -4,8 +4,54 @@
 #include "tparser.h"
 #include "tvm.h"
 
-void debug_token_print(tre_Token* tokens, int len) {
-    for (tre_Token *p = tokens; p != tokens + len; p++) {
+void debug_token_print(tre_Lexer *lex) {
+    int err;
+    uint32_t tval;
+
+    printf("token list:\n");
+    while (true) {
+        err = tre_lexer_next(lex);
+        tval = lex->token.value;
+
+        //printf("    %12d ", tval, lex->token.extra.code);
+        if (tval < FIRST_TOKEN) {
+            printf("%12s  ", "<SIGN>");
+            putchar(tval);
+            switch (tval) {
+                case '(':
+                    printf("    GroupType:%d    Code:%d", lex->token.extra.group_type, lex->token.extra.code);
+                    break;
+                case '{':
+                    printf("    GroupType:%d    {%d, %d}", lex->token.extra.group_type, lex->token.extra.code, lex->token.extra.code2);
+                    break;
+                case '[':
+                    printf("%5d", lex->token.extra.code);
+                    break;
+            }
+        } else {
+            if (tval == TK_CHAR) {
+                printf("%12s  ", "<CHAR>");
+                putcode(lex->token.extra.code);
+            } else if (tval == TK_CHAR_SPE) {
+                printf("%12s  ", "<CHAR_SPE>");
+                if (lex->token.extra.code != '.') putchar('\\');
+                putcode(lex->token.extra.code);
+            } else if (tval == TK_BACK_REF) {
+                printf("%12s  ", "<BACK_REF>");
+                printf("%d", lex->token.extra.code);
+            } else if (tval == TK_COMMENT) {
+                printf("%12s  ", "<COMMENT>");
+            } else if (tval == TK_END) {
+                putchar('\n');
+                break;
+            }
+        }
+        putchar('\n');
+    }
+    putchar('\n');
+
+
+    /*for (tre_Token *p = tokens; p != tokens + len; p++) {
         printf("%8d %12d ", p->token, p->info.code);
         if (p->token < FIRST_TOKEN) {
             printf("T ");
@@ -24,7 +70,7 @@ void debug_token_print(tre_Token* tokens, int len) {
         }
         putchar('\n');
     }
-    putchar('\n');
+    putchar('\n');*/
 }
 
 void debug_ins_list_print(ParserMatchGroup* groups) {

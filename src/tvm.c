@@ -163,7 +163,7 @@ int do_ins_cmp_multi(VMState* vms, bool is_ncmp) {
                 match = true;
                 break;
             }
-        } else if (_type == TK_SPE_CHAR) {
+        } else if (_type == TK_CHAR_SPE) {
             if (char_cmp_spe(_code, snap->chrcode, vms->flag)) {
                 match = true;
                 break;

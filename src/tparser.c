@@ -7,7 +7,7 @@
 
 #define paser_accept(__stat) if (!((__stat))) return NULL;
 #define check_token(tk) if (tk == NULL || tk->token == 0) return NULL;
-
+/*
 tre_Token* parser_single_char(ParserInfo* pi, tre_Token* tk);
 tre_Token* parser_char_set(ParserInfo* pi, tre_Token* tk);
 tre_Token* parser_char(ParserInfo* pi, tre_Token* tk);
@@ -434,7 +434,7 @@ tre_Token* parser_group(ParserInfo* pi, tre_Token* tk) {
             if (m_cur->group_extra >= avaliable_group) {
                 error_code = ERR_PARSER_INVALID_GROUP_INDEX;
                 return NULL;
-            }*/
+            }*//*/*
             pi->m_cur->group_type = GT_BACKREF_CONDITIONAL_INDEX;
         }
 
@@ -484,7 +484,7 @@ tre_Token* parser_blocks(ParserInfo* pi, tre_Token* tk) {
     return tk;
 }
 
-/** return length of groups */
+/** return length of groups *//*
 static _INLINE
 int group_sort(ParserMatchGroup* parser_groups) {
     int gnum = 0;
@@ -542,7 +542,7 @@ void clear_parser(ParserMatchGroup* parser_groups) {
         free(pg_tmp);
     }
 }
-
+*/
 void parser_info_init(ParserInfo* pi) {
     pi->error_code = 0;
     pi->avaliable_group = 1;
@@ -550,14 +550,14 @@ void parser_info_init(ParserInfo* pi) {
     pi->is_count_width = false;
 }
 
-tre_Pattern* tre_parser(TokenListInfo* tki, tre_Token** last_token, int* perror_code) {
-    tre_Token *tokens;
+tre_Pattern* tre_parser(tre_Lexer *lexer, tre_Token** last_token, int* perror_code) {
+    /*tre_Token *tokens;
     tre_Pattern *ret;
     ParserInfo *pi = _new(ParserInfo, 1);
 
     parser_info_init(pi);
-    pi->tk_info = tki;
-    pi->tk_info->group_names = tki->group_names;
+    //pi->tk_info = tki;
+    //pi->tk_info->group_names = tki->group_names;
 
     ParserMatchGroup *m_cur, *m_start;
     m_cur = m_start = _new(ParserMatchGroup, 1);
@@ -586,8 +586,8 @@ tre_Pattern* tre_parser(TokenListInfo* tki, tre_Token** last_token, int* perror_
         ret->num = tki->max_normal_group_num;
         return ret;
     }
-
-    clear_parser(m_start);
+    
+    clear_parser(m_start);*/
     return NULL;
 }
 

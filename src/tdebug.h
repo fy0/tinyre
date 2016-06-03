@@ -2,12 +2,14 @@
 #ifndef TINYRETRE_DEBUG_H
 #define TINYRETRE_DEBUG_H
 
+#include "tlexer.h"
+
 //#define TRE_DEBUG
 
 struct tre_Token;
 struct ParserMatchGroup;
 
-void debug_token_print(struct tre_Token* tokens, int len);
+void debug_token_print(tre_Lexer *lexer);
 void debug_ins_list_print(struct ParserMatchGroup* groups);
 
 void debug_printstr(int* str, int head, int tail);

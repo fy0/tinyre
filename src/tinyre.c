@@ -62,26 +62,26 @@ tre_Pattern* tre_compile(char* s, int flag, int* err_code) {
 
     lexer = tre_lexer_new(buf, len);
 
-    if (ret >= 0) {
-#ifdef TRE_DEBUG
-        //debug_token_print(tki->tokens, ret);
+#define TRE_DEBUG_LEXER
+#ifdef TRE_DEBUG_LEXER
+    debug_token_print(lexer);
+    return 0;
 #endif
-    }
 
-    if (ret < 0) {
+    /*if (ret < 0) {
         *err_code = ret;
         return NULL;
-    }
+    }*/
 
-    groups = tre_parser(tki, &last_token, &ret);
+    groups = tre_parser(lexer, &last_token, &ret);
 
     if (groups == NULL) {
         *err_code = ret;
     } else {
-        groups->flag = flag | tki->extra_flag;
+        groups->flag = flag | lexer->extra_flag;
     }
 
-    token_info_free(tki);
+    //token_info_free(tki);
     return groups;
 }
 

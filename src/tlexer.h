@@ -8,11 +8,13 @@
 
 enum TOKEN_LIST {
     TK_CHAR = FIRST_TOKEN,
-    TK_SPE_CHAR,
+    TK_CHAR_SPE,
     TK_BACK_REF,
     TK_NBACK_REF,
     TK_EQ_REF,
     TK_NE_REF,
+    TK_COMMENT,
+    TK_END
 };
 
 enum GROUP_TYPE {
@@ -26,17 +28,17 @@ enum GROUP_TYPE {
     GT_BACKREF_CONDITIONAL_GROUPNAME,
 };
 
-typedef union TokenInfo {
+typedef struct TokenInfo {
     uint32_t index;
     uint32_t code;
     uint32_t code2;
+    uint32_t group_type;
     uint32_t* group_name;
     int group_name_len;
 } TokenInfo;
 
 typedef struct tre_Token {
     uint32_t value;
-    uint32_t type;
     TokenInfo extra;
 } tre_Token;
 
@@ -47,7 +49,7 @@ typedef struct TokenGroupName {
 } TokenGroupName;
 
 
-typedef struct tre_LexState {
+typedef struct tre_Lexer {
     tre_Token token;
     int extra_flag;
     const uint32_t *s;
