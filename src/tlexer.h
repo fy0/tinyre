@@ -29,13 +29,15 @@ enum GROUP_TYPE {
 typedef union TokenInfo {
     uint32_t index;
     uint32_t code;
-    char* group_name;
+    uint32_t code2;
+    uint32_t* group_name;
+    int group_name_len;
 } TokenInfo;
 
 typedef struct tre_Token {
-    uint32_t token;
+    uint32_t value;
     uint32_t type;
-    TokenInfo info;
+    TokenInfo extra;
 } tre_Token;
 
 typedef struct TokenGroupName {
@@ -44,16 +46,22 @@ typedef struct TokenGroupName {
     struct TokenGroupName *next;
 } TokenGroupName;
 
-typedef struct TokenListInfo {
-    int token_num;
-    tre_Token* tokens;
+
+typedef struct tre_LexState {
+    tre_Token token;
     int extra_flag;
+    const uint32_t *s;
+    int scur;
+    int slen;
+    int state; // 0 NOMRAL | 1 [...] | 2 (?...)
     int max_normal_group_num;
     TokenGroupName* group_names;
-} TokenListInfo;
+} tre_Lexer;
 
-int tre_lexer(char* s, TokenListInfo** ptki);
-void token_info_free(TokenListInfo* tki);
+tre_Lexer* tre_lexer_new(char *s);
+int tre_lexer_next(tre_Lexer* lex);
+
+//void token_info_free(TokenListInfo* tki);
 
 #define ERR_LEXER_UNBALANCED_PARENTHESIS        -3
 #define ERR_LEXER_UNEXPECTED_END_OF_PATTERN     -4

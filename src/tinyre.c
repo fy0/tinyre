@@ -54,10 +54,10 @@ void tre_err(int err_code) {
 tre_Pattern* tre_compile(char* s, int flag, int* err_code) {
     int ret;
     tre_Token *last_token;
-    TokenListInfo* tki;
     tre_Pattern* groups;
+    tre_Lexer* lexer;
 
-    ret = tre_lexer(s, &tki);
+    lexer = tre_lexer_new(s);
 
     if (ret >= 0) {
 #ifdef TRE_DEBUG
