@@ -53,12 +53,12 @@ typedef struct tre_LexState {
     const uint32_t *s;
     int scur;
     int slen;
-    int state; // 0 NOMRAL | 1 [...] | 2 (?...)
+    int state; // 0 NOMRAL | 1 [...] 
     int max_normal_group_num;
     TokenGroupName* group_names;
 } tre_Lexer;
 
-tre_Lexer* tre_lexer_new(char *s);
+tre_Lexer* tre_lexer_new(uint32_t* s, int len);
 int tre_lexer_next(tre_Lexer* lex);
 
 //void token_info_free(TokenListInfo* tki);

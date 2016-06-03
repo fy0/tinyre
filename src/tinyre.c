@@ -57,11 +57,14 @@ tre_Pattern* tre_compile(char* s, int flag, int* err_code) {
     tre_Pattern* groups;
     tre_Lexer* lexer;
 
-    lexer = tre_lexer_new(s);
+    int len;
+    uint32_t* buf = utf8_to_ucs4_str(s, &len);
+
+    lexer = tre_lexer_new(buf, len);
 
     if (ret >= 0) {
 #ifdef TRE_DEBUG
-        debug_token_print(tki->tokens, ret);
+        //debug_token_print(tki->tokens, ret);
 #endif
     }
 

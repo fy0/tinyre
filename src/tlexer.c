@@ -69,7 +69,7 @@ _INLINE static uint8_t _dec(uint32_t code) {
 
 
 _INLINE static
-int try_read_x_int(uint32_t* start, uint32_t *end, int n, uint8_t(*func)(uint32_t code), int max_size, int *pcount) {
+int try_read_x_int(uint32_t *start, uint32_t *end, int n, uint8_t(*func)(uint32_t code), int max_size, int *pcount) {
     const uint32_t *p = start;
     const uint32_t *e = (max_size > 0) ? start + max_size : end;
     int ret = 0, val = (int)pow(n, e - p - 1);
@@ -87,7 +87,7 @@ int try_read_x_int(uint32_t* start, uint32_t *end, int n, uint8_t(*func)(uint32_
 
 
 _INLINE static
-int token_char_accept(tre_Lexer* lex, uint32_t code, bool use_back_ref) {
+int token_char_accept(tre_Lexer *lex, uint32_t code, bool use_back_ref) {
     if (code == '\\') {
         // 对转义字符做特殊处理
         if (lex->scur == lex->slen) {
@@ -126,49 +126,49 @@ int char_to_flag(uint32_t code) {
     return 0;
 }
 
-char* read_group_name(const char** pp, char end_terminal) {
-    int code;
-    const char*p = *pp;
-    char* name;
-    const char* start = p;
+#define lex_isidentfirst(c) ((c >= 'A' && c<= 'Z') || (c >= 'a' && c<= 'z') || (c >= '_') || (c >= 128))
+#define lex_isidentletter(c) ((c >= 'A' && c<= 'Z') || (c >= 'a' && c<= 'z') || (c >= '0' && c<= '9') || (c == '_') || (c >= 128))
 
-    p = utf8_decode(p, &code);
-    if (!isalpha(code)) return NULL;
+uint32_t* read_group_name(tre_Lexer *lex, char end_terminal, int *plen) {
+    uint32_t code;
+    uint32_t *name;
+    uint32_t *p = lex->s + lex->scur;
+    uint32_t *start = p;
+
+
+    code = *p++;
+    if (!lex_isidentfirst(code)) return NULL;
 
     while (true) {
-        if (!(isalnum(code) || code == '_')) break;
-        p = utf8_decode(p, &code);
+        if (!lex_isidentletter(code)) break;
+        code = *p++;
     }
 
     if (code != end_terminal) {
         return NULL;
     }
 
-    name = _new(char, p - start);
+    name = _new(uint32_t, p - start);
     memcpy(name, start, p - start - 1);
     name[p - start - 1] = '\0';
 
-    *pp = p;
+    if (plen) *plen = p - start - 1;
     return name;
 }
 
-int read_int(const char** pp, char end_terminal) {
-    int ret;
-    int code;
-    const char*p = *pp;
-
-    p = utf8_decode(p, &code);
-    ret = try_get_int(code, &p);
-
-    if (ret == -1 || *p != end_terminal) {
-        return -1;
+int read_int(tre_Lexer *lex, char end_terminal, int *plen) {
+    uint32_t *p = lex->s + lex->scur;
+    int count = try_read_x_int(p, lex->s + lex->slen - 1, 10, _dec, 0, plen);
+    if (plen) {
+        if (*(p + *plen) != end_terminal) {
+            return -1;
+        }
     }
-
-    *pp = p+1;
-    return ret;
+    return count;
 }
 
 int tre_lexer_next(tre_Lexer* lex) {
+    int len;
     uint32_t code;
     if (lex->scur == lex->slen) return -1;
     code = char_next(lex);
@@ -208,7 +208,7 @@ int tre_lexer_next(tre_Lexer* lex) {
                         }
 
                         // read left limit a{1, 2
-                        rlimit = try_read_x_int(lex->s + lex->scur, lex->s + lex->slen - 1, 10, _dec, 0);
+                        rlimit = try_read_x_int(lex->s + lex->scur, lex->s + lex->slen - 1, 10, _dec, 0, &count);
                         lex->scur += count;
 
                         // read right brace a{1,2} or a{1,}
@@ -255,12 +255,13 @@ int tre_lexer_next(tre_Lexer* lex) {
                                 case '!': lex->token.type = GT_IF_NOT_MATCH; break;
                                 case '(':
                                     // code for conditional backref
-                                    uint32_t* name = read_group_name(&p, ')');
+                                    uint32_t* name = read_group_name(lex, ')', &len);
                                     if (name) {
                                         lex->token.type = GT_BACKREF_CONDITIONAL_GROUPNAME;
                                         lex->token.extra.group_name = name;
+                                        lex->token.extra.group_name_len = len;
                                     } else {
-                                        int i = read_int(&p, ')');
+                                        int i = read_int(lex, ')', &len);
                                         if (i == -1) {
                                             return ERR_LEXER_INVALID_GROUP_NAME_OR_INDEX;
                                         } else {
@@ -273,18 +274,20 @@ int tre_lexer_next(tre_Lexer* lex) {
                                     code = char_next(lex);
                                     // group name
                                     if (code == '<') {
-                                        char* name = read_group_name(&p, '>');
+                                        uint32_t* name = read_group_name(lex, '>', &len);
                                         if (!name) return ERR_LEXER_BAD_GROUP_NAME;
+                                        lex->token.extra.group_name = name;
+                                        lex->token.extra.group_name_len = len;
                                         lex->max_normal_group_num++;
                                     } else if (code == '=') {
                                         // code for back reference (?P=)
-
-                                        char* name = read_group_name(&p, ')');
+                                        uint32_t* name = read_group_name(lex, ')', &len);
                                         if (!name) return ERR_LEXER_BAD_GROUP_NAME_IN_BACKREF;
 
                                         lex->token.value = TK_BACK_REF;
                                         lex->token.type = 2;
                                         lex->token.extra.group_name = name;
+                                        lex->token.extra.group_name_len = len;
                                     } else {
                                         return ERR_LEXER_UNKNOW_SPECIFIER;
                                     }
