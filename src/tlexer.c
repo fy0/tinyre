@@ -7,11 +7,17 @@ uint32_t char_next(tre_Lexer *lex) {
 }
 
 uint32_t char_nextn(tre_Lexer *lex, int n) {
-    return lex->s[lex->scur+=n];
+    uint32_t code = lex->s[lex->scur+n-1];
+    lex->scur+=n;
+    return code;
 }
 
 uint32_t char_lookahead(tre_Lexer *lex) {
-    return lex->s[lex->scur+1];
+    return lex->s[lex->scur];
+}
+
+uint32_t char_lookaheadn(tre_Lexer *lex, int n) {
+    return lex->s[lex->scur + n - 1];
 }
 
 _INLINE static
@@ -132,7 +138,6 @@ uint32_t* read_group_name(tre_Lexer *lex, char end_terminal, int *plen) {
     const uint32_t *p = lex->s + lex->scur;
     const uint32_t *start = p;
 
-
     code = *p++;
     if (!lex_isidentfirst(code)) return NULL;
 
@@ -161,7 +166,7 @@ int read_int(tre_Lexer *lex, char end_terminal, int *plen) {
 
     int count = _read_x_int(start, p, 10, _dec, 0);
     if (plen) {
-        if (end_terminal && (*(p + *plen) != end_terminal)) {
+        if (end_terminal && (*(p + (p-start)) != end_terminal)) {
             return -1;
         }
     }
@@ -200,14 +205,13 @@ int tre_lexer_next(tre_Lexer* lex) {
 
                         // read left limit a{1
                         llimit = read_int(lex, 0, &count);
-                        code = char_nextn(lex, count);
+                        code = char_nextn(lex, count+1);
 
                         // read comma a{1,
                         if ((char)code == ',') {
-                            code = char_next(lex);
+                            //char_next(lex);
                         } else if ((char)code == '}') {
                             rlimit = llimit;
-                            char_next(lex);
                             goto __write_code;
                         } else {
                             // falied, rollback
@@ -216,7 +220,7 @@ int tre_lexer_next(tre_Lexer* lex) {
 
                         // read left limit a{1, 2
                         rlimit = read_int(lex, 0, &count);
-                        code = char_nextn(lex, count);
+                        code = char_nextn(lex, count+1);
 
                         // read right brace a{1,2} or a{1,}
                         if ((char)code == '}') {
@@ -266,6 +270,7 @@ int tre_lexer_next(tre_Lexer* lex) {
                                     // code for conditional backref
                                     name = read_group_name(lex, ')', &len);
                                     if (name) {
+                                        code = char_next(lex);
                                         lex->token.extra.group_type = GT_BACKREF_CONDITIONAL_GROUPNAME;
                                         lex->token.extra.group_name = name;
                                         lex->token.extra.group_name_len = len;
@@ -274,17 +279,22 @@ int tre_lexer_next(tre_Lexer* lex) {
                                         if (i == -1) {
                                             return ERR_LEXER_INVALID_GROUP_NAME_OR_INDEX;
                                         } else {
+                                            code = char_next(lex);
                                             lex->token.extra.group_type = GT_BACKREF_CONDITIONAL_INDEX;
                                             lex->token.extra.index = i;
                                         }
                                     }
+                                    code = char_next(lex);
                                     break;
                                 case 'P':
-                                    code = char_next(lex);
                                     // group name
+                                    code = char_nextn(lex, 1);
                                     if (code == '<') {
+                                        code = char_next(lex);
                                         name = read_group_name(lex, '>', &len);
                                         if (!name) return ERR_LEXER_BAD_GROUP_NAME;
+                                        code = char_nextn(lex, len+1); // name and '>'
+                                        lex->token.extra.group_type = GT_NORMAL;
                                         lex->token.extra.group_name = name;
                                         lex->token.extra.group_name_len = len;
                                         lex->max_normal_group_num++;
@@ -323,6 +333,8 @@ int tre_lexer_next(tre_Lexer* lex) {
                                     } else {
                                         return ERR_LEXER_UNEXPECTED_END_OF_PATTERN;
                                     }
+                                    lex->token.value = TK_NOP;
+                                    break;
                             }
                         }
                     }
@@ -334,15 +346,51 @@ int tre_lexer_next(tre_Lexer* lex) {
             break;
         case 1: { // [...]
             bool is_escape = code == '\\';
-            if (code == ']') {
-                lex->state = 0;
-                lex->token.value = ']';
-                break;
-            }
             int ret = token_char_accept(lex, code, false);
             if (ret) return ret;
 
-            // TODO: 为 a-z 语法做处理
+            if (!is_escape && lex->token.value == TK_CHAR) {
+                // end the state
+                if (code == ']') {
+                    lex->state = 0;
+                    lex->token.value = ']';
+                    break;
+                }
+            }
+
+            // [a-z] grammar
+            code = char_lookahead(lex);
+            if (code == '-') {
+                uint32_t code2 = char_lookaheadn(lex, 2);
+                // [a-]
+                if (code2 == ']') break;
+
+                // [\s-1] -> error
+                if (lex->token.value == TK_CHAR_SPE) {
+                    return ERR_LEXER_BAD_CHARACTER_RANGE;
+                }
+
+                // [a-z]
+                code2 = lex->token.extra.code;
+                code = char_nextn(lex, 2);
+                ret = token_char_accept(lex, code, false);
+                if (ret) return ret;
+
+                // [1-\s] -> error
+                if (lex->token.value == TK_CHAR_SPE) {
+                    return ERR_LEXER_BAD_CHARACTER_RANGE;
+                }
+
+                // [z-a] -> error
+                if (lex->token.extra.code < code2) {
+                    return ERR_LEXER_BAD_CHARACTER_RANGE;
+                }
+
+                // everything is ok
+                lex->token.value = '-';
+                lex->token.extra.code2 = lex->token.extra.code;
+                lex->token.extra.code = code2;
+            }
             break;
         }
     }

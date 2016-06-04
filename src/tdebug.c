@@ -11,6 +11,10 @@ void debug_token_print(tre_Lexer *lex) {
     printf("token list:\n");
     while (true) {
         err = tre_lexer_next(lex);
+        if (err) {
+            tre_err(err);
+            return;
+        }
         tval = lex->token.value;
 
         //printf("    %12d ", tval, lex->token.extra.code);
@@ -19,13 +23,22 @@ void debug_token_print(tre_Lexer *lex) {
             putchar(tval);
             switch (tval) {
                 case '(':
-                    printf("    GroupType:%d    Code:%d", lex->token.extra.group_type, lex->token.extra.code);
+                    printf("    GroupType:%d    ", lex->token.extra.group_type);
+                    if (lex->token.extra.group_type == GT_BACKREF_CONDITIONAL_INDEX) {
+                        printf("Index:%d", lex->token.extra.index);
+                    }
                     break;
                 case '{':
-                    printf("    GroupType:%d    {%d, %d}", lex->token.extra.group_type, lex->token.extra.code, lex->token.extra.code2);
+                    printf("    {%d, %d}", lex->token.extra.code, lex->token.extra.code2);
                     break;
                 case '[':
                     printf("%5d", lex->token.extra.code);
+                    break;
+                case '-':
+                    printf("    ");
+                    putcode(lex->token.extra.code);
+                    putchar('-');
+                    putcode(lex->token.extra.code2);
                     break;
             }
         } else {
@@ -41,6 +54,10 @@ void debug_token_print(tre_Lexer *lex) {
                 printf("%d", lex->token.extra.code);
             } else if (tval == TK_COMMENT) {
                 printf("%12s  ", "<COMMENT>");
+                printf("#");
+            } else if (tval == TK_NOP) {
+                printf("%12s  ", "<NOP>");
+                printf("@");
             } else if (tval == TK_END) {
                 putchar('\n');
                 break;

@@ -14,6 +14,7 @@ enum TOKEN_LIST {
     TK_EQ_REF,
     TK_NE_REF,
     TK_COMMENT,
+    TK_NOP,
     TK_END
 };
 
@@ -75,5 +76,7 @@ int tre_lexer_next(tre_Lexer* lex);
 #define ERR_LEXER_BAD_GROUP_NAME_IN_BACKREF     -10
 #define ERR_LEXER_INVALID_GROUP_NAME_OR_INDEX   -11
 #define ERR_LEXER_REDEFINITION_OF_GROUP_NAME    -12
+#define ERR_LEXER_BAD_CHARACTER_RANGE           -52
+
 #endif
 
