@@ -2,6 +2,9 @@
 #include "tlexer.h"
 #include "tutils.h"
 
+int read_int(tre_Lexer *lex, char end_terminal, int *plen);
+int read_hex(tre_Lexer *lex, int len, bool *p_isok);
+
 uint32_t char_next(tre_Lexer *lex) {
     return lex->s[lex->scur++];
 }
@@ -88,6 +91,41 @@ int _read_x_int(const uint32_t *start, const uint32_t *end, int n, uint8_t(*func
     return ret;
 }
 
+int read_int(tre_Lexer *lex, char end_terminal, int *plen) {
+    const uint32_t *p = lex->s + lex->scur;
+    const uint32_t *start = p;
+
+    while (isdigit(*p)) ++p;
+
+    int num = _read_x_int(start, p, 10, _dec, 0);
+    if (plen) {
+        if (end_terminal && (*(p + (p - start)) != end_terminal)) {
+            return -1;
+        }
+    }
+    if (plen) *plen = p - start;
+    return num;
+}
+
+int read_hex(tre_Lexer *lex, int len, bool *p_isok) {
+    const uint32_t *p = lex->s + lex->scur;
+    const uint32_t *start = p;
+    int count = 0;
+
+    while (_hex(*p) != 255) {
+        ++p;
+        if (++count == len) break;
+    }
+
+    if (count != len) {
+        p_isok = false;
+        return 0;
+    }
+
+    *p_isok = true;
+    return _read_x_int(start, p, 16, _hex, 0);
+}
+
 
 _INLINE static
 int token_char_accept(tre_Lexer *lex, uint32_t code, bool use_back_ref) {
@@ -106,11 +144,45 @@ int token_char_accept(tre_Lexer *lex, uint32_t code, bool use_back_ref) {
                 lex->token.value = TK_CHAR_SPE;
             } else {
                 // 否则当做 hex/unicode 转义处理
-                // ... 麻烦得很，暂时先报个错结束
-                return ERR_LEXER_HEX_ESCAPE;
-                /*if (code == 'x') {
+                int num, len;
+                bool is_ok = false;
 
-                }*/
+                if (code == 'x') {
+                    num = read_hex(lex, 2, &is_ok);
+                    if (!is_ok) return ERR_LEXER_HEX_ESCAPE;
+                    char_nextn(lex, 2);
+                } else if (code == 'u') {
+                    num = read_hex(lex, 4, &is_ok);
+                    if (!is_ok) return ERR_LEXER_UNICODE_ESCAPE;
+                    char_nextn(lex, 4);
+                } else if (code == 'U') {
+                    num = read_hex(lex, 8, &is_ok); // unicode 6.0 \U0000000A
+                    if (!is_ok) return ERR_LEXER_UNICODE6_ESCAPE;
+                    char_nextn(lex, 8);
+                }
+
+                if (is_ok) {
+                    lex->token.value = TK_CHAR;
+                    lex->token.extra.code = num;
+                } else {
+                    num = read_int(lex, 0, &len);
+                    if (num != -1) {
+                        // back reference or normal char
+                        if (use_back_ref) {
+                            if (num == 0) {
+                                lex->token.value = TK_CHAR;
+                                lex->token.extra.code = 0;
+                            } else {
+                                lex->token.value = TK_BACK_REF;
+                                lex->token.extra.code = num;
+                            }
+                        } else {
+                            lex->token.value = TK_CHAR;
+                            lex->token.extra.code = num;
+                        }
+                        char_nextn(lex, len);
+                    }
+                }
             }
         }
     } else {
@@ -156,22 +228,6 @@ uint32_t* read_group_name(tre_Lexer *lex, char end_terminal, int *plen) {
 
     if (plen) *plen = p - start - 1;
     return name;
-}
-
-int read_int(tre_Lexer *lex, char end_terminal, int *plen) {
-    const uint32_t *p = lex->s + lex->scur;
-    const uint32_t *start = p;
-
-    while (isdigit(*p)) ++p;
-
-    int count = _read_x_int(start, p, 10, _dec, 0);
-    if (plen) {
-        if (end_terminal && (*(p + (p-start)) != end_terminal)) {
-            return -1;
-        }
-    }
-    if (plen) *plen = p - start;
-    return count;
 }
 
 int tre_lexer_next(tre_Lexer* lex) {
