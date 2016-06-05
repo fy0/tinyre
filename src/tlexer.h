@@ -43,12 +43,6 @@ typedef struct tre_Token {
     TokenInfo extra;
 } tre_Token;
 
-typedef struct TokenGroupName {
-    tre_Token* tk;
-    char* name;
-    struct TokenGroupName *next;
-} TokenGroupName;
-
 
 typedef struct tre_Lexer {
     tre_Token token;
@@ -58,7 +52,7 @@ typedef struct tre_Lexer {
     int slen;
     int state; // 0 NOMRAL | 1 [...] 
     int max_normal_group_num;
-    TokenGroupName* group_names;
+    //TokenGroupName* group_names;
 } tre_Lexer;
 
 tre_Lexer* tre_lexer_new(uint32_t* s, int len);

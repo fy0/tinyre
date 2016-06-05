@@ -302,6 +302,7 @@ int tre_lexer_next(tre_Lexer* lex) {
                         // if next char is not ?
                         if (code != '?') {
                             lex->token.extra.group_type = GT_NORMAL;
+                            lex->token.extra.group_name = NULL;
                             lex->max_normal_group_num++;
                             break;
                         } else {
@@ -457,7 +458,6 @@ tre_Lexer* tre_lexer_new(uint32_t* s, int len) {
     tre_Lexer* lex = _new(tre_Lexer, 1);
     lex->extra_flag = 0;
     lex->max_normal_group_num = 1;
-    lex->group_names = NULL;
     lex->state = 0;
 
     if (s) {

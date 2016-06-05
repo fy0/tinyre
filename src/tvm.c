@@ -639,8 +639,11 @@ tre_GroupResult* vm_exec(VMState* vms) {
                 results[i].head = vms->match_results[i].head - vms->input_str;
                 results[i].tail = vms->match_results[i].tail - vms->input_str;
                 if (vms->groups[i].name) {
-                    results[i].name = _new(char, strlen(vms->groups[i].name)+1);
-                    memcpy(results[i].name, vms->groups[i].name, strlen(vms->groups[i].name)+1);
+                    //results[i].name = _new(char, strlen(vms->groups[i].name)+1);
+                    //memcpy(results[i].name, vms->groups[i].name, strlen(vms->groups[i].name)+1);
+                    results[i].name = _new(uint32_t, vms->groups[i].name_len + 1);
+                    results[i].name_len = vms->groups[i].name_len;
+                    memcpy(results[i].name, vms->groups[i].name, vms->groups[i].name_len + 1);
                 }
             } else {
                 results[i].head = -1;

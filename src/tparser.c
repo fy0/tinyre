@@ -5,220 +5,204 @@
 #include "tvm.h"
 #include "tdebug.h"
 
-#define paser_accept(__stat) if (!((__stat))) return NULL;
-#define check_token(tk) if (tk == NULL || tk->token == 0) return NULL;
-/*
-tre_Token* parser_single_char(ParserInfo* pi, tre_Token* tk);
-tre_Token* parser_char_set(ParserInfo* pi, tre_Token* tk);
-tre_Token* parser_char(ParserInfo* pi, tre_Token* tk);
-tre_Token* parser_block(ParserInfo* pi, tre_Token* tk);
-tre_Token* parser_group(ParserInfo* pi, tre_Token* tk);
+#define paser_accept(__stat) if (!((__stat))) return false;
+#define check_token(tk) if (tk->value == TK_END) return false;
 
-tre_Token* parser_single_char(ParserInfo* pi, tre_Token* tk) {
-    if (tk->token == TK_CHAR || tk->token == TK_SPE_CHAR) {
+bool parse_single_char(tre_Parser *ps);
+bool parse_char_set(tre_Parser *ps);
+bool parse_char(tre_Parser *ps);
+bool parse_block(tre_Parser *ps);
+bool parse_group(tre_Parser *ps);
+
+void parse_blocks(tre_Parser *ps);
+
+
+bool parse_single_char(tre_Parser *ps) {
+    tre_Token *tk = &(ps->lex->token);
+
+    if (tk->value == TK_CHAR || tk->value == TK_CHAR_SPE) {
         // CODE GENERATE
         // CMP/CMP_SPE CODE
-        pi->m_cur->codes->ins = tk->token == TK_CHAR ? ins_cmp : ins_cmp_spe;
-        pi->m_cur->codes->data = _new(uint32_t, 1);
-        pi->m_cur->codes->len = 1;
-        *pi->m_cur->codes->data = tk->info.code;
-        pi->m_cur->codes->next = _new(INS_List, 1);
-        pi->m_cur->codes = pi->m_cur->codes->next;
-        pi->m_cur->codes->next = NULL;
+        ps->m_cur->codes->ins = tk->value == TK_CHAR ? ins_cmp : ins_cmp_spe;
+        ps->m_cur->codes->data = _new(uint32_t, 1);
+        ps->m_cur->codes->len = 1;
+        *ps->m_cur->codes->data = tk->extra.code;
+        ps->m_cur->codes->next = _new(INS_List, 1);
+        ps->m_cur->codes = ps->m_cur->codes->next;
+        ps->m_cur->codes->next = NULL;
         // END
-        return tk + 1;
+        tre_lexer_next(ps->lex);
+        return true;
     }
-    return NULL;
+    return false;
 }
 
-static _INLINE
-tre_Token* parser_char_set_test_single(ParserInfo* pi, tre_Token* tk) {
-    paser_accept(tk->token == TK_CHAR || tk->token == TK_SPE_CHAR || tk->token == '-');
-    if (tk->token == '-') {
-        tk->info.code = '-';
-        tk->token = TK_CHAR;
-    }
-    return tk + 1;
-}
 
-static _INLINE
-tre_Token* parser_char_set_test_range(ParserInfo* pi, tre_Token* tk) {
-    paser_accept(tk->token == TK_CHAR || tk->token == '-');
-    tk++;
-    paser_accept((tk++)->token == '-');
-    paser_accept(tk->token == TK_CHAR || tk->token == '-');
-    tk++;
-    // reset token
-    if ((tk - 1)->token == '-') {
-        (tk - 1)->info.code = '-';
-        (tk - 1)->token = TK_CHAR;
-    }
-    if ((tk - 3)->token == '-') {
-        (tk - 3)->info.code = '-';
-        (tk - 3)->token = TK_CHAR;
-    }
-    // swap tk-2, tk-3 => [a-z] to [-az]
-    (tk - 2)->info.code = (tk - 3)->info.code;
-    (tk - 2)->token = TK_CHAR;
-    (tk - 3)->token = '-';
-    return tk;
-}
+bool parser_char_set(tre_Parser *ps) {
+    tre_Token *tk = &(ps->lex->token);
 
-tre_Token* parser_char_set(ParserInfo* pi, tre_Token* tk) {
-    int num = 0;
-    int* data;
     bool is_ncmp;
-    tre_Token* ret;
-    tre_Token* start;
+    uint32_t *data, *data_start;
+    int tmp, num = 0, size_all = 4;
 
     TRE_DEBUG_PRINT("CHAR_SET\n");
 
-    paser_accept(tk->token == '[');
-    is_ncmp = (tk->info.code == 1) ? true : false;
-    tk++;
+    paser_accept(tk->value == '[');
+    is_ncmp = (tk->extra.code == 1) ? true : false;
+    tre_lexer_next(ps->lex);
     check_token(tk);
-    start = tk;
-    
-    while (tk->token == TK_CHAR || tk->token == TK_SPE_CHAR || tk->token == '-') {
-        ret = parser_char_set_test_range(pi, tk);
-        if (!ret) ret = parser_char_set_test_single(pi, tk);
-        tk = ret;
-        check_token(tk);
-        num++;
-    }
-
-    paser_accept(tk->token == ']');
 
     // CODE GENERATE
     // CMP_MULTI NUM [TYPE1 CODE1 NOOP], [TYPE2 CODE2 NOOP], [TYPE3 RANGE1 RANGE2] ...
-    pi->m_cur->codes->ins = is_ncmp ? ins_ncmp_multi : ins_cmp_multi;
-    pi->m_cur->codes->data = _new(uint32_t, 3 * num + 1);
-    pi->m_cur->codes->len = (3 * num + 1);
-    // END
+    ps->m_cur->codes->ins = is_ncmp ? ins_ncmp_multi : ins_cmp_multi;
+    data_start = _new(uint32_t, 3 * size_all + 1);
 
-    data = (int*)pi->m_cur->codes->data;
-    *(data++) = num;
+    data = (uint32_t*)data_start+1;
 
-    for (; start != tk; start++) {
-        *data = start->token;
-        if (start->token == '-') {
-            *(data + 1) = (start+1)->info.code;
-            *(data + 2) = (start+2)->info.code;
-            if ((start + 2)->info.code < (start + 1)->info.code) {
-                pi->error_code = ERR_PARSER_BAD_CHARACTER_RANGE;
-                return NULL;
-            }
-            start += 2;
-        } else {
-            *(data + 1) = start->info.code;
+    while (tk->value == TK_CHAR || tk->value == TK_CHAR_SPE || tk->value == '-') {
+        check_token(tk);
+
+        if (num + 1 < size_all) {
+            size_all *= 2;
+            tmp = data - data_start;
+            data_start = realloc(data_start, 3 * size_all + 1);
+            data += tmp;
         }
-        data += 3;
+
+        (*data) = tk->value;
+        *(data + 1) = tk->extra.code;
+
+        if (tk->value == '-') {
+            *(data + 2) = tk->extra.code2;
+        }
+
+        num++;
     }
 
-    pi->m_cur->codes->next = _new(INS_List, 1);
-    pi->m_cur->codes = pi->m_cur->codes->next;
-    pi->m_cur->codes->next = NULL;
-    return tk + 1;
+    *data = num;
+    ps->m_cur->codes->data = data_start;
+    ps->m_cur->codes->len = (3 * num + 1);
+    // END
+
+    paser_accept(tk->value == ']');
+    tre_lexer_next(ps->lex);
+
+    data = (int*)ps->m_cur->codes->data;
+    *(data++) = num;
+
+    ps->m_cur->codes->next = _new(INS_List, 1);
+    ps->m_cur->codes = ps->m_cur->codes->next;
+    ps->m_cur->codes->next = NULL;
+    return true;
 }
 
-tre_Token* parser_char(ParserInfo* pi, tre_Token* tk) {
+bool parse_char(tre_Parser *ps) {
     TRE_DEBUG_PRINT("CHAR\n");
 
-    tre_Token* ret = parser_single_char(pi, tk);
-    if (!ret) ret = parser_char_set(pi, tk);
-    if (ret && pi->is_count_width) pi->match_width += 1;
+    bool ret = parse_single_char(ps);
+    if (!ret) ret = parser_char_set(ps);
+    if (ret && ps->is_count_width) ps->match_width += 1;
     return ret;
 }
 
-tre_Token* parser_other_tokens(ParserInfo* pi, tre_Token* tk) {
-    if (tk->token == '^' || tk->token == '$') {
+bool parse_other_tokens(tre_Parser *ps) {
+    tre_Token *tk = &(ps->lex->token);
+
+    if (tk->value == '^' || tk->value == '$') {
         // CODE GENERATE
         // MATCH_START/MATCH_END
-        pi->m_cur->codes->ins = tk->token == '^' ? ins_match_start : ins_match_end;
-        pi->m_cur->codes->len = 0;
-        pi->m_cur->codes->next = _new(INS_List, 1);
-        pi->m_cur->codes = pi->m_cur->codes->next;
-        pi->m_cur->codes->next = NULL;
+        ps->m_cur->codes->ins = tk->value == '^' ? ins_match_start : ins_match_end;
+        ps->m_cur->codes->len = 0;
+        ps->m_cur->codes->next = _new(INS_List, 1);
+        ps->m_cur->codes = ps->m_cur->codes->next;
+        ps->m_cur->codes->next = NULL;
         // END
-        return tk + 1;
+        tre_lexer_next(ps->lex);
+        return true;
     }
-    return NULL;
+    return false;
 }
 
-tre_Token* parser_or(ParserInfo* pi, tre_Token* tk) {
-    // try to catch a |
+bool parse_or(tre_Parser *ps) {
+    // try to catch |
+    tre_Token *tk = &(ps->lex->token);
     OR_List *or_list, *or2_list;
-    paser_accept(tk->token == '|');
+
+    paser_accept(tk->value == '|');
+    tre_lexer_next(ps->lex);
 
     // code for conditional backref
-    if (pi->m_cur->group_type >= GT_BACKREF_CONDITIONAL_INDEX) {
-        if (pi->m_cur->group_extra) {
-            pi->error_code = ERR_PARSER_CONDITIONAL_BACKREF;
-            return NULL;
+    if (ps->m_cur->group_type >= GT_BACKREF_CONDITIONAL_INDEX) {
+        if (ps->m_cur->group_extra) {
+            ps->error_code = ERR_PARSER_CONDITIONAL_BACKREF;
+            return false;
         }
-        pi->m_cur->group_extra = 1;
+        ps->m_cur->group_extra = 1;
     }
     // end
 
     or_list = _new(OR_List, 1);
-    or_list->codes = pi->m_cur->codes;
+    or_list->codes = ps->m_cur->codes;
     or_list->next = NULL;
 
-    if (pi->m_cur->or_list) {
-        or2_list = pi->m_cur->or_list;
+    if (ps->m_cur->or_list) {
+        or2_list = ps->m_cur->or_list;
         while (or2_list->next) {
             or2_list = or2_list->next;
         }
         or2_list->next = or_list;
     } else {
-        pi->m_cur->or_list = or_list;
+        ps->m_cur->or_list = or_list;
     }
 
     // CODE GENERATE
     // GROUP_END -1
-    pi->m_cur->codes->ins = ins_group_end;
-    pi->m_cur->codes->data = _new(uint32_t, 1);
-    pi->m_cur->codes->len = 1;
-    *pi->m_cur->codes->data = -1;
-    pi->m_cur->codes->next = _new(INS_List, 1);
-    pi->m_cur->codes = pi->m_cur->codes->next;
-    pi->m_cur->codes->next = NULL;
-    pi->m_cur->or_num++;
+    ps->m_cur->codes->ins = ins_group_end;
+    ps->m_cur->codes->data = _new(uint32_t, 1);
+    ps->m_cur->codes->len = 1;
+    *ps->m_cur->codes->data = -1;
+    ps->m_cur->codes->next = _new(INS_List, 1);
+    ps->m_cur->codes = ps->m_cur->codes->next;
+    ps->m_cur->codes->next = NULL;
+    ps->m_cur->or_num++;
     // END
-    return tk + 1;
+    return true;
 }
 
-tre_Token* parser_back_ref(ParserInfo* pi, tre_Token* tk) {
-    if (tk->token == TK_BACK_REF) {
+bool parse_back_ref(tre_Parser *ps) {
+    tre_Token *tk = &(ps->lex->token);
+
+    if (tk->value == TK_BACK_REF) {
         // CODE GENERATE
         // CMP_BACKREF INDEX
-        pi->m_cur->codes->ins = ins_cmp_backref;
-        pi->m_cur->codes->data = _new(uint32_t, 1);
-        pi->m_cur->codes->len = 1;
-        *pi->m_cur->codes->data = tk->info.index;
-        pi->m_cur->codes->next = _new(INS_List, 1);
-        pi->m_cur->codes = pi->m_cur->codes->next;
-        pi->m_cur->codes->next = NULL;
+        ps->m_cur->codes->ins = ins_cmp_backref;
+        ps->m_cur->codes->data = _new(uint32_t, 1);
+        ps->m_cur->codes->len = 1;
+        *ps->m_cur->codes->data = tk->extra.index;
+        ps->m_cur->codes->next = _new(INS_List, 1);
+        ps->m_cur->codes = ps->m_cur->codes->next;
+        ps->m_cur->codes->next = NULL;
         // END
-        return tk + 1;
+        tre_lexer_next(ps->lex);
+        return true;
     }
-    return NULL;
+    return false;
 }
 
-tre_Token* parser_block(ParserInfo* pi, tre_Token* tk) {
-    tre_Token *ret, *ret2;
+bool parse_block(tre_Parser* ps) {
+    bool ret, ret2;
     INS_List* last_ins;
+    tre_Token *tk = &(ps->lex->token);
 
     TRE_DEBUG_PRINT("BLOCK\n");
 
-    check_token(tk);
-    last_ins = pi->m_cur->codes;
+    last_ins = ps->m_cur->codes;
 
-    ret = parser_char(pi, tk);
-    if (!ret) ret = parser_group(pi, tk);
-    if (!ret) ret = parser_back_ref(pi, tk);
+    ret = parse_char(ps);
+    if (!ret) ret = parse_group(ps);
+    if (!ret) ret = parse_back_ref(ps);
     if (!ret) {
-        ret2 = parser_or(pi, tk);
+        ret2 = parse_or(ps);
         if (ret2) return ret2;
     }
 
@@ -226,48 +210,42 @@ tre_Token* parser_block(ParserInfo* pi, tre_Token* tk) {
         bool need_checkpoint = false, greed = true;
         int llimit, rlimit;
 
-        tk = ret;
-
-        if (tk->token == '?') {
-            ret++;
+        if (tk->value == '?') {
             llimit = 0;
             rlimit = 1;
             need_checkpoint = true;
-        } else if (tk->token == '+') {
-            ret++;
+            tre_lexer_next(ps->lex);
+        } else if (tk->value == '+') {
             llimit = 1;
             rlimit = -1;
             need_checkpoint = true;
-        } else if (tk->token == '*') {
-            ret++;
+            tre_lexer_next(ps->lex);
+        } else if (tk->value == '*') {
             llimit = 0;
             rlimit = -1;
             need_checkpoint = true;
-        } else if (tk->token == '{') {
-            if ((tk + 1)->token == '}') {
-                ret += 2;
-                llimit = tk->info.index;
-                rlimit = (tk + 1)->info.index;
-                need_checkpoint = true;
-            } else {
-                pi->error_code = ERR_PARSER_IMPOSSIBLE_TOKEN;
-                return NULL;
-            }
+            tre_lexer_next(ps->lex);
+        } else if (tk->value == '{') {
+            llimit = tk->extra.code;
+            rlimit = tk->extra.code2;
+            need_checkpoint = true;
+            tre_lexer_next(ps->lex);
         }
 
         if (need_checkpoint) {
-            if (ret->token == '?') {
-                ret ++;
+            if (tk->value == '?') {
+                // ?? +? *?
+                tre_lexer_next(ps->lex);
                 greed = false;
             }
 
-            if (pi->is_count_width) {
+            if (ps->is_count_width) {
                 if (llimit != rlimit) {
-                    pi->error_code = ERR_PARSER_REQUIRES_FIXED_WIDTH_PATTERN;
-                    return NULL;
+                    ps->error_code = ERR_PARSER_REQUIRES_FIXED_WIDTH_PATTERN;
+                    return false;
                 }
                 if (llimit > 0) {
-                    pi->match_width += llimit - 1;
+                    ps->match_width += llimit - 1;
                 }
             }
         }
@@ -276,11 +254,11 @@ tre_Token* parser_block(ParserInfo* pi, tre_Token* tk) {
         // CHECK_POINT LLIMIT RLIMIT
         if (need_checkpoint) {
             // 将上一条指令（必然是一条匹配指令复制一遍）
-            memcpy(pi->m_cur->codes, last_ins, sizeof(INS_List));
+            memcpy(ps->m_cur->codes, last_ins, sizeof(INS_List));
             // 为这条指令创建新的后继节点
-            pi->m_cur->codes->next = _new(INS_List, 1);
-            pi->m_cur->codes = pi->m_cur->codes->next;
-            pi->m_cur->codes->next = NULL;
+            ps->m_cur->codes->next = _new(INS_List, 1);
+            ps->m_cur->codes = ps->m_cur->codes->next;
+            ps->m_cur->codes->next = NULL;
 
             last_ins->ins = greed ? ins_check_point : ins_check_point_no_greed;
             last_ins->data = _new(uint32_t, 2);
@@ -290,177 +268,176 @@ tre_Token* parser_block(ParserInfo* pi, tre_Token* tk) {
         }
         // END
     } else {
-        ret = parser_other_tokens(pi, tk);
+        ret = parse_other_tokens(ps);
     }
 
     if (!ret) {
-        if (!pi->error_code) pi->error_code = ERR_PARSER_NOTHING_TO_REPEAT;
+        if (!ps->error_code) ps->error_code = ERR_PARSER_NOTHING_TO_REPEAT;
     }
     
-    return ret;
+    return true;
 }
 
-tre_Token* parser_group(ParserInfo* pi, tre_Token* tk) {
+
+bool parse_group(tre_Parser* ps) {
     int gindex;
     int group_type;
-    char* name = NULL;
-    tre_Token* ret;
+    tre_Token *tk = &(ps->lex->token);
     ParserMatchGroup* last_group;
+    uint32_t *gname = tk->extra.group_name;
+    int gname_len = tk->extra.group_name_len;
 
     int match_width_record;
-    bool is_count_width_record = pi->is_count_width;
+    bool is_count_width_record = ps->is_count_width;
 
     TRE_DEBUG_PRINT("GROUP\n");
 
-    paser_accept(tk->token == '(');
-    group_type = tk->info.code;
-
-    if (pi->tk_info->group_names && pi->tk_info->group_names->tk == tk) {
-        name = pi->tk_info->group_names->name;
-    }
+    paser_accept(tk->value == '(');
+    group_type = tk->extra.group_type;
 
     // code for back reference (?P=), backref group is not real group
     if (group_type == GT_BACKREF_CONDITIONAL_INDEX) {
         int i = 1;
-        for (ParserMatchGroup* pg = pi->m_start->next; pg; pg = pg->next) {
-            if (pg->name && (memcmp(name, pg->name, strlen(name)) == 0)) {
-                pi->m_cur->codes->ins = ins_cmp_backref;
-                pi->m_cur->codes->data = _new(uint32_t, 1);
-                pi->m_cur->codes->len = 1;
-                *pi->m_cur->codes->data = i;
-                pi->m_cur->codes->next = _new(INS_List, 1);
-                pi->m_cur->codes = pi->m_cur->codes->next;
-                pi->m_cur->codes->next = NULL;
-                pi->tk_info->group_names = pi->tk_info->group_names->next;
-                return tk + 1;
+        for (ParserMatchGroup* pg = ps->m_start->next; pg; pg = pg->next) {
+            if (pg->name && (memcmp(tk->extra.group_name, pg->name, tk->extra.group_name_len) == 0)) {
+                ps->m_cur->codes->ins = ins_cmp_backref;
+                ps->m_cur->codes->data = _new(uint32_t, 1);
+                ps->m_cur->codes->len = 1;
+                *ps->m_cur->codes->data = i;
+                ps->m_cur->codes->next = _new(INS_List, 1);
+                ps->m_cur->codes = ps->m_cur->codes->next;
+                ps->m_cur->codes->next = NULL;
+                free(tk->extra.group_name);
+                tre_lexer_next(ps->lex);
+                return true;
             }
             i++;
         }
-        pi->error_code = ERR_PARSER_UNKNOWN_GROUP_NAME;
-        return NULL;
+        ps->error_code = ERR_PARSER_UNKNOWN_GROUP_NAME;
+        return false;
     }
     // end
 
     if (group_type == GT_NORMAL) {
         gindex = 1; // 注意 gindex 不等于 avaliable_group 这里我犯过一次错误
     } else {
-        gindex = pi->tk_info->max_normal_group_num;
+        gindex = ps->lex->max_normal_group_num;
     }
 
     // code for (?<=...) (?<!...)
     if (group_type == GT_IF_PRECEDED_BY || group_type == GT_IF_NOT_PRECEDED_BY) {
-        if (!pi->is_count_width) pi->is_count_width = true;
-        match_width_record = pi->match_width;
+        if (!ps->is_count_width) ps->is_count_width = true;
+        match_width_record = ps->match_width;
     }
-    if (pi->is_count_width && (group_type == GT_IF_MATCH || group_type == GT_IF_NOT_MATCH)) {
-        pi->is_count_width = false;
+    if (ps->is_count_width && (group_type == GT_IF_MATCH || group_type == GT_IF_NOT_MATCH)) {
+        ps->is_count_width = false;
     }
     // end
 
-    tk++;
+    tre_lexer_next(ps->lex);
     check_token(tk);
 
     // 前进至最后
-    last_group = pi->m_cur;
-    pi->m_cur = pi->m_start;
+    last_group = ps->m_cur;
+    ps->m_cur = ps->m_start;
 
-    while (pi->m_cur->next) {
-        pi->m_cur = pi->m_cur->next;
-        if (group_type == GT_NORMAL && pi->m_cur->group_type == GT_NORMAL) gindex++;
-        if (group_type != GT_NORMAL && pi->m_cur->group_type != GT_NORMAL) gindex++;
+    while (ps->m_cur->next) {
+        ps->m_cur = ps->m_cur->next;
+        if (group_type == GT_NORMAL && ps->m_cur->group_type == GT_NORMAL) gindex++;
+        if (group_type != GT_NORMAL && ps->m_cur->group_type != GT_NORMAL) gindex++;
     }
 
     // 创建新节点
-    pi->m_cur->next = _new(ParserMatchGroup, 1);
-    pi->m_cur->next->codes = pi->m_cur->next->codes_start = _new(INS_List, 1);
-    pi->m_cur = pi->m_cur->next;
-    pi->m_cur->next = NULL;
-    pi->m_cur->or_num = 0;
-    pi->m_cur->or_list = NULL;
-    pi->m_cur->name = (group_type == GT_NORMAL) ? name : NULL;
-    pi->m_cur->group_type = group_type;
-    pi->m_cur->codes->next = NULL;
+    ps->m_cur->next = _new(ParserMatchGroup, 1);
+    ps->m_cur->next->codes = ps->m_cur->next->codes_start = _new(INS_List, 1);
+    ps->m_cur = ps->m_cur->next;
+    ps->m_cur->next = NULL;
+    ps->m_cur->or_num = 0;
+    ps->m_cur->or_list = NULL;
+    ps->m_cur->name = (group_type == GT_NORMAL) ? gname : NULL;
+    ps->m_cur->group_type = group_type;
+    ps->m_cur->codes->next = NULL;
 
     // code for conditional backref
-    if (group_type == GT_BACKREF_CONDITIONAL_INDEX && (!name)) {
+    // TODO:明显的不和谐
+    if (group_type == GT_BACKREF_CONDITIONAL_INDEX && (!gname)) {
         // (?(0)...) is normal group
-        group_type = pi->m_cur->group_type = 0;
+        group_type = ps->m_cur->group_type = 0;
     }
     if (group_type >= GT_BACKREF_CONDITIONAL_INDEX) {
-        pi->m_cur->group_extra = 0; // flag
+        ps->m_cur->group_extra = 0; // flag
     }
     // end
 
-    if (name) {
-        if (group_type == GT_NORMAL) pi->tk_info->group_names->name = NULL; // fix for mem free
-        pi->tk_info->group_names = pi->tk_info->group_names->next;
+    if (gname) {
+        //if (group_type == GT_NORMAL) ps->tk_info->group_names->name = NULL; // fix for mem free
+        //pi->tk_info->group_names = pi->tk_info->group_names->next;
     }
 
-    ret = tk;
-    while ((ret = parser_block(pi, ret))) tk = ret;
+    parse_blocks(ps);
 
-    paser_accept(tk->token == ')');
+    paser_accept(tk->value == ')');
 
     // code for (?<=...) (?<!...)
     if (group_type == GT_IF_PRECEDED_BY || group_type == GT_IF_NOT_PRECEDED_BY) {
-        pi->m_cur->group_extra = pi->match_width - match_width_record;
+        ps->m_cur->group_extra = ps->match_width - match_width_record;
     }
 
-    if (is_count_width_record != pi->is_count_width) {
-        pi->is_count_width = is_count_width_record;
+    if (is_count_width_record != ps->is_count_width) {
+        ps->is_count_width = is_count_width_record;
     }
     // end
 
     // code for conditional backref
     if (group_type >= GT_BACKREF_CONDITIONAL_INDEX) {
-        if (name) {
+        if (gname) {
             int i = 1;
             bool ok = false;
-            for (ParserMatchGroup* pg = pi->m_start->next; pg; pg = pg->next) {
-                if (pg->group_type == GT_NORMAL && pg->name && (memcmp(name, pg->name, strlen(name)) == 0)) {
-                    pi->m_cur->group_extra = i;
+            for (ParserMatchGroup* pg = ps->m_start->next; pg; pg = pg->next) {
+                if (pg->group_type == GT_NORMAL && pg->name && (memcmp(gname, pg->name, gname_len) == 0)) {
+                    ps->m_cur->group_extra = i;
                     ok = true;
                     break;
                 }
                 i++;
             }
             if (!ok) {
-                pi->error_code = ERR_PARSER_UNKNOWN_GROUP_NAME;
-                return NULL;
+                ps->error_code = ERR_PARSER_UNKNOWN_GROUP_NAME;
+                return false;
             }
         } else {
-            pi->m_cur->group_extra = group_type - GT_BACKREF_CONDITIONAL_INDEX;
+            ps->m_cur->group_extra = group_type - GT_BACKREF_CONDITIONAL_INDEX;
             /* not an error
             if (m_cur->group_extra >= avaliable_group) {
                 error_code = ERR_PARSER_INVALID_GROUP_INDEX;
                 return NULL;
-            }*//*/*
-            pi->m_cur->group_type = GT_BACKREF_CONDITIONAL_INDEX;
+            }*/
+            ps->m_cur->group_type = GT_BACKREF_CONDITIONAL_INDEX;
         }
 
         // without "no" branch
-        if (!pi->m_cur->or_list) {
+        if (!ps->m_cur->or_list) {
             OR_List* or_list = _new(OR_List, 1);
-            or_list->codes = pi->m_cur->codes;
+            or_list->codes = ps->m_cur->codes;
             or_list->next = NULL;
-            pi->m_cur->or_list = or_list;
-            pi->m_cur->or_num++;
+            ps->m_cur->or_list = or_list;
+            ps->m_cur->or_num++;
 
             // GROUP_END -1
-            pi->m_cur->codes->ins = ins_group_end;
-            pi->m_cur->codes->data = _new(uint32_t, 1);
-            pi->m_cur->codes->len = 1;
-            *pi->m_cur->codes->data = -1;
-            pi->m_cur->codes->next = _new(INS_List, 1);
-            pi->m_cur->codes = pi->m_cur->codes->next;
-            pi->m_cur->codes->next = NULL;
+            ps->m_cur->codes->ins = ins_group_end;
+            ps->m_cur->codes->data = _new(uint32_t, 1);
+            ps->m_cur->codes->len = 1;
+            *ps->m_cur->codes->data = -1;
+            ps->m_cur->codes->next = _new(INS_List, 1);
+            ps->m_cur->codes = ps->m_cur->codes->next;
+            ps->m_cur->codes->next = NULL;
             // END
         }
 
     }
     // end
 
-    if (group_type == GT_NORMAL) pi->avaliable_group++;
+    if (group_type == GT_NORMAL) ps->avaliable_group++;
 
     // CODE GENERATE
     // CMP_GROUP INDEX
@@ -473,18 +450,18 @@ tre_Token* parser_group(ParserInfo* pi, tre_Token* tk) {
     last_group->codes->next = NULL;
     // END
 
-    pi->m_cur = last_group;
-    return tk+1;
+    ps->m_cur = last_group;
+    tre_lexer_next(ps->lex);
+    return true;
 }
 
-tre_Token* parser_blocks(ParserInfo* pi, tre_Token* tk) {
-    tre_Token* ret;
-    ret = tk;
-    while ((ret = parser_block(pi, ret))) tk = ret;
-    return tk;
+void parse_blocks(tre_Parser* ps) {
+    while (ps->lex->token.value != TK_END) {
+        parse_block(ps);
+    }
 }
 
-/** return length of groups *//*
+/** return length of groups */
 static _INLINE
 int group_sort(ParserMatchGroup* parser_groups) {
     int gnum = 0;
@@ -542,22 +519,19 @@ void clear_parser(ParserMatchGroup* parser_groups) {
         free(pg_tmp);
     }
 }
-*/
-void parser_info_init(ParserInfo* pi) {
-    pi->error_code = 0;
-    pi->avaliable_group = 1;
-    pi->match_width = 0;
-    pi->is_count_width = false;
+
+void parser_init(tre_Parser* pas) {
+    pas->error_code = 0;
+    pas->avaliable_group = 1;
+    pas->match_width = 0;
+    pas->is_count_width = false;
 }
 
-tre_Pattern* tre_parser(tre_Lexer *lexer, tre_Token** last_token, int* perror_code) {
-    /*tre_Token *tokens;
+tre_Pattern* tre_parser(tre_Lexer *lexer, int* perror_code) {
+    tre_Parser *ps = _new(tre_Parser, 1);
     tre_Pattern *ret;
-    ParserInfo *pi = _new(ParserInfo, 1);
 
-    parser_info_init(pi);
-    //pi->tk_info = tki;
-    //pi->tk_info->group_names = tki->group_names;
+    parser_init(ps);
 
     ParserMatchGroup *m_cur, *m_start;
     m_cur = m_start = _new(ParserMatchGroup, 1);
@@ -569,25 +543,25 @@ tre_Pattern* tre_parser(tre_Lexer *lexer, tre_Token** last_token, int* perror_co
     m_cur->or_list = NULL;
     m_cur->name = NULL;
 
-    pi->m_cur = m_cur;
-    pi->m_start = m_start;
+    ps->m_cur = m_cur;
+    ps->m_start = m_start;
 
-    tokens = parser_blocks(pi, tki->tokens);
-    *last_token = tokens;
-    *perror_code = pi->error_code;
-    free(pi);
+    parse_blocks(ps);
 
-    if (tokens && (tokens >= tki->tokens + tki->token_num)) {
+    *perror_code = ps->error_code;
+    free(ps);
+
+    if (ps->lex->token.value == TK_END && (!ps->error_code)) {
         group_sort(m_start);
 #ifdef TRE_DEBUG
         debug_ins_list_print(m_start);
 #endif
         ret = compact_group(m_start);
-        ret->num = tki->max_normal_group_num;
+        ret->num = ps->lex->max_normal_group_num;
         return ret;
     }
     
-    clear_parser(m_start);*/
+    clear_parser(m_start);
     return NULL;
 }
 
@@ -618,6 +592,7 @@ tre_Pattern* compact_group(ParserMatchGroup* parser_groups) {
         // sizeof(int)*2 is space for group_end
         g->codes = _new(uint32_t, code_lens + 2);
         g->name = pg->name;
+        g->name_len = pg->name_len;
         g->type = pg->group_type;
         g->extra = pg->group_extra;
 

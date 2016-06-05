@@ -18,7 +18,9 @@ typedef struct OR_List {
 } OR_List;
 
 typedef struct ParserMatchGroup {
-    char* name;
+    uint32_t* name;
+    int name_len;
+
     INS_List* codes;
     INS_List* codes_start;
     int group_type;
@@ -28,7 +30,8 @@ typedef struct ParserMatchGroup {
     struct ParserMatchGroup* next;
 } ParserMatchGroup;
 
-typedef struct ParserInfo {
+typedef struct tre_Parser {
+    tre_Lexer *lex;
     int error_code;
     int avaliable_group;
 
@@ -37,10 +40,10 @@ typedef struct ParserInfo {
 
     bool is_count_width;
     int match_width;
-} ParserInfo;
+} tre_Parser;
 
 tre_Pattern* compact_group(ParserMatchGroup* parser_groups);
-tre_Pattern* tre_parser(tre_Lexer *lexer, tre_Token** last_token, int* perror_code);
+tre_Pattern* tre_parser(tre_Lexer *lexer,int* perror_code);
 
 // look-behind requires fixed-width pattern
 #define ERR_PARSER_REQUIRES_FIXED_WIDTH_PATTERN   -51

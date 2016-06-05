@@ -53,7 +53,6 @@ void tre_err(int err_code) {
 
 tre_Pattern* tre_compile(char* s, int flag, int* err_code) {
     int ret;
-    tre_Token *last_token;
     tre_Pattern* groups;
     tre_Lexer* lexer;
 
@@ -73,7 +72,7 @@ tre_Pattern* tre_compile(char* s, int flag, int* err_code) {
         return NULL;
     }*/
 
-    groups = tre_parser(lexer, &last_token, &ret);
+    groups = tre_parser(lexer, &ret);
 
     if (groups == NULL) {
         *err_code = ret;
