@@ -32,6 +32,11 @@ static void putcode(uint32_t code) {
     }
 }
 
+static void output_str(uint32_t *str, int len) {
+    for (int i = 0; i < len; ++i) {
+        putcode(str[i]);
+    }
+}
 
 typedef struct tre_Stack {
     void* data;

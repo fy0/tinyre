@@ -61,16 +61,11 @@ tre_Pattern* tre_compile(char* s, int flag, int* err_code) {
 
     lexer = tre_lexer_new(buf, len);
 
-#define TRE_DEBUG_LEXER
+//#define TRE_DEBUG_LEXER
 #ifdef TRE_DEBUG_LEXER
     debug_token_print(lexer);
     return 0;
 #endif
-
-    /*if (ret < 0) {
-        *err_code = ret;
-        return NULL;
-    }*/
 
     groups = tre_parser(lexer, &ret);
 

@@ -11,10 +11,9 @@
 bool parse_single_char(tre_Parser *ps);
 bool parse_char_set(tre_Parser *ps);
 bool parse_char(tre_Parser *ps);
-bool parse_block(tre_Parser *ps);
 bool parse_group(tre_Parser *ps);
-
-void parse_blocks(tre_Parser *ps);
+bool parse_block(tre_Parser *ps);
+bool parse_blocks(tre_Parser *ps);
 
 
 bool parse_single_char(tre_Parser *ps) {
@@ -62,11 +61,11 @@ bool parser_char_set(tre_Parser *ps) {
     while (tk->value == TK_CHAR || tk->value == TK_CHAR_SPE || tk->value == '-') {
         check_token(tk);
 
-        if (num + 1 < size_all) {
+        if (num + 1 >= size_all) {
             size_all *= 2;
             tmp = data - data_start;
             data_start = realloc(data_start, 3 * size_all + 1);
-            data += tmp;
+            data = data_start + tmp;
         }
 
         (*data) = tk->value;
@@ -76,6 +75,8 @@ bool parser_char_set(tre_Parser *ps) {
             *(data + 2) = tk->extra.code2;
         }
 
+        tre_lexer_next(ps->lex);
+        data += 3;
         num++;
     }
 
@@ -273,6 +274,7 @@ bool parse_block(tre_Parser* ps) {
 
     if (!ret) {
         if (!ps->error_code) ps->error_code = ERR_PARSER_NOTHING_TO_REPEAT;
+        return false;
     }
     
     return true;
@@ -374,7 +376,14 @@ bool parse_group(tre_Parser* ps) {
         //pi->tk_info->group_names = pi->tk_info->group_names->next;
     }
 
-    parse_blocks(ps);
+    while (ps->lex->token.value != TK_END && ps->lex->token.value != ')') {
+        if (!parse_block(ps)) return false;
+    }
+
+    if (ps->lex->token.value == TK_END) {
+        ps->error_code = ERR_LEXER_UNBALANCED_PARENTHESIS;
+        return false;
+    }
 
     paser_accept(tk->value == ')');
 
@@ -455,10 +464,11 @@ bool parse_group(tre_Parser* ps) {
     return true;
 }
 
-void parse_blocks(tre_Parser* ps) {
+bool parse_blocks(tre_Parser* ps) {
     while (ps->lex->token.value != TK_END) {
-        parse_block(ps);
+        if (!parse_block(ps)) return false;
     }
+    return true;
 }
 
 /** return length of groups */
@@ -532,6 +542,7 @@ tre_Pattern* tre_parser(tre_Lexer *lexer, int* perror_code) {
     tre_Pattern *ret;
 
     parser_init(ps);
+    ps->lex = lexer;
 
     ParserMatchGroup *m_cur, *m_start;
     m_cur = m_start = _new(ParserMatchGroup, 1);
@@ -546,10 +557,10 @@ tre_Pattern* tre_parser(tre_Lexer *lexer, int* perror_code) {
     ps->m_cur = m_cur;
     ps->m_start = m_start;
 
+    tre_lexer_next(ps->lex);
     parse_blocks(ps);
 
     *perror_code = ps->error_code;
-    free(ps);
 
     if (ps->lex->token.value == TK_END && (!ps->error_code)) {
         group_sort(m_start);
@@ -558,9 +569,11 @@ tre_Pattern* tre_parser(tre_Lexer *lexer, int* perror_code) {
 #endif
         ret = compact_group(m_start);
         ret->num = ps->lex->max_normal_group_num;
+        free(ps);
         return ret;
     }
     
+    free(ps);
     clear_parser(m_start);
     return NULL;
 }

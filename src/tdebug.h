@@ -12,7 +12,7 @@ struct ParserMatchGroup;
 void debug_token_print(tre_Lexer *lexer);
 void debug_ins_list_print(struct ParserMatchGroup* groups);
 
-void debug_printstr(int* str, int head, int tail);
+void debug_printstr(uint32_t *str, int head, int tail);
 
 #ifdef TRE_DEBUG
 #define TRE_DEBUG_PRINT(str) printf_u8(str)

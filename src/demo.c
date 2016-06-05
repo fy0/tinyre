@@ -23,7 +23,7 @@ int main(int argc,char* argv[])
     tre_Match* match = NULL;
     platform_init();
 
-    pattern = tre_compile("1(2)[3]4{0,5}(?#123)(?:1)(?(1))(?P<aaa>2)(?ims)3[a-zb-babc1-2\\x32-\\x35]\\x321", FLAG_DOTALL, &err_code);
+    pattern = tre_compile("1(2)[3]", FLAG_DOTALL, &err_code);
 
     if (pattern) {
         match = tre_match(pattern, "123", 5000);
@@ -31,16 +31,19 @@ int main(int argc,char* argv[])
         if (match->groups) {
             putchar('\n');
             for (i = 0; i < match->groupnum; i++) {
-                printf_u8("Group %2d: ", i);
-                if (match->groups[i].name) printf_u8("(%s) ", match->groups[i].name);
-                else printf_u8("(null) ");
-                printf_u8("%d %d\n", match->groups[i].head, match->groups[i].tail);
+                printf("Group %2d: ", i);
+                if (match->groups[i].name) {
+                    printf("(");
+                    output_str(match->groups[i].name, match->groups[i].name_len);
+                    printf(") ");
+                } else printf("(null) ");
+                printf("%d %d\n", match->groups[i].head, match->groups[i].tail);
                 if (match->groups[i].head != -1) {
                     debug_printstr(match->str, match->groups[i].head, match->groups[i].tail);
                 } else {
-                    printf_u8("match failed.");
+                    printf("match failed.");
                 }
-                printf_u8("\n");
+                printf("\n");
             }
         }
     } else {
