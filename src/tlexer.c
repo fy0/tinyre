@@ -147,6 +147,7 @@ int token_char_accept(tre_Lexer *lex, uint32_t code, bool use_back_ref) {
                 // 能确定为特殊匹配字符的话，读取结束
                 lex->token.extra.code = code;
                 lex->token.value = TK_CHAR_SPE;
+                code = char_next(lex);
             } else {
                 // 否则当做 hex/unicode 转义处理
                 int num, len;
@@ -231,7 +232,7 @@ uint32_t* read_group_name(tre_Lexer *lex, char end_terminal, int *plen) {
     }
 
     name = _new(uint32_t, p - start);
-    memcpy(name, start, p - start - 1);
+    memcpy(name, start, (p - start) * sizeof(uint32_t));
     name[p - start - 1] = '\0';
 
     if (plen) *plen = p - start - 1;
