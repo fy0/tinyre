@@ -133,7 +133,7 @@ bool parse_or(tre_Parser *ps) {
     tre_lexer_next(ps->lex);
 
     // code for conditional backref
-    if (ps->m_cur->group_type >= GT_BACKREF_CONDITIONAL_INDEX) {
+    if (ps->m_cur->group_type >= GT_BACKREF_CONDITIONAL_GROUPNAME) {
         if (ps->m_cur->group_extra) {
             ps->error_code = ERR_PARSER_CONDITIONAL_BACKREF;
             return false;
@@ -374,7 +374,7 @@ bool parse_group(tre_Parser* ps) {
 
     // code for conditional backref
     // TODO:明显的不和谐
-    if (group_type == GT_BACKREF_CONDITIONAL_INDEX && (!gname)) {
+    if (group_type == GT_BACKREF_CONDITIONAL_GROUPNAME && (!gname)) {
         // (?(0)...) is normal group
         group_type = ps->m_cur->group_type = 0;
     }
@@ -410,7 +410,7 @@ bool parse_group(tre_Parser* ps) {
     // end
 
     // code for conditional backref
-    if (group_type >= GT_BACKREF_CONDITIONAL_INDEX) {
+    if (group_type >= GT_BACKREF_CONDITIONAL_GROUPNAME) {
         if (gname) {
             int i = 1;
             bool ok = false;
@@ -427,13 +427,13 @@ bool parse_group(tre_Parser* ps) {
                 return false;
             }
         } else {
-            ps->m_cur->group_extra = group_type - GT_BACKREF_CONDITIONAL_INDEX;
+            ps->m_cur->group_extra = group_type - GT_BACKREF_CONDITIONAL_GROUPNAME;
             /* not an error
             if (m_cur->group_extra >= avaliable_group) {
                 error_code = ERR_PARSER_INVALID_GROUP_INDEX;
                 return NULL;
             }*/
-            ps->m_cur->group_type = GT_BACKREF_CONDITIONAL_INDEX;
+            ps->m_cur->group_type = GT_BACKREF_CONDITIONAL_GROUPNAME;
         }
 
         // without "no" branch

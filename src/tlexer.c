@@ -467,6 +467,12 @@ int tre_check_groups(uint32_t *s, int len) {
                 else if (s[i + 2] == '(') i += 2;
                 i++;
             } else num++;
+        } else if (s[i] == '[') {
+            while (i++) {
+                if (s[i] == ']') break;
+                else if (s[i] == '\0') return -1;
+                else if (s[i] == '\\') i++;
+            }
         }
     }
     return num;
@@ -476,6 +482,7 @@ tre_Lexer* tre_lexer_new(uint32_t *s, int len) {
     tre_Lexer* lex = _new(tre_Lexer, 1);
     lex->extra_flag = 0;
     lex->max_normal_group_num = tre_check_groups(s, len) + 1;
+    printf("1111111111111 %d\n", lex->max_normal_group_num);
     lex->state = 0;
 
     if (s) {
