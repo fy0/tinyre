@@ -190,6 +190,11 @@ int token_char_accept(tre_Lexer *lex, uint32_t code, bool use_back_ref) {
                             lex->token.extra.code = num;
                         }
                         char_nextn(lex, len);
+                    } else {
+                        // 既不是转义，也不是前向引用，只是一个字符罢了
+                        lex->token.value = TK_CHAR;
+                        lex->token.extra.code = code;
+                        char_next(lex);
                     }
                 }
             }
