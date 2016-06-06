@@ -24,7 +24,8 @@ int main(int argc,char* argv[])
     platform_init();
 
     //pattern = tre_compile("1(2)[3]", FLAG_DOTALL, &err_code);
-    pattern = tre_compile("(a)(?:(?=(b)*)c)*", FLAG_DOTALL, &err_code);
+    //pattern = tre_compile("(a)(?:(?=(b)*)c)*", FLAG_DOTALL, &err_code);
+    pattern = tre_compile("a{2,}", FLAG_DOTALL, &err_code);
 
     if (pattern) {
         match = tre_match(pattern, "abb", 5000);

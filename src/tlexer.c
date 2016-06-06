@@ -97,6 +97,11 @@ int read_int(tre_Lexer *lex, char end_terminal, int *plen) {
 
     while (isdigit(*p)) ++p;
 
+    if (p == start) {
+        if (plen) *plen = 0;
+        return -1;
+    }
+
     int num = _read_x_int(start, p, 10, _dec, 0);
     if (plen) {
         if (end_terminal && (*(p + (p - start)) != end_terminal)) {
