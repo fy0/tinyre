@@ -303,7 +303,6 @@ int tre_lexer_next(tre_Lexer* lex) {
                         if (code != '?') {
                             lex->token.extra.group_type = GT_NORMAL;
                             lex->token.extra.group_name = NULL;
-                            lex->max_normal_group_num++;
                             break;
                         } else {
                             code = char_nextn(lex, 2);
@@ -354,7 +353,6 @@ int tre_lexer_next(tre_Lexer* lex) {
                                         lex->token.extra.group_type = GT_NORMAL;
                                         lex->token.extra.group_name = name;
                                         lex->token.extra.group_name_len = len;
-                                        lex->max_normal_group_num++;
                                     } else if (code == '=') {
                                         // code for back reference (?P=)
                                         name = read_group_name(lex, ')', &len);
@@ -454,10 +452,25 @@ int tre_lexer_next(tre_Lexer* lex) {
     return 0;
 }
 
-tre_Lexer* tre_lexer_new(uint32_t* s, int len) {
+int tre_check_groups(uint32_t *s, int len) {
+    int num = 0;
+    for (int i = 0; i < len; ++i) {
+        if (s[i] == '\\') i++;
+        else if (s[i] == '(') {
+            if (s[i + 1] == '?') {
+                if (s[i + 2] == 'P') num++;
+                else if (s[i + 2] == '(') i += 2;
+                i++;
+            } else num++;
+        }
+    }
+    return num;
+}
+
+tre_Lexer* tre_lexer_new(uint32_t *s, int len) {
     tre_Lexer* lex = _new(tre_Lexer, 1);
     lex->extra_flag = 0;
-    lex->max_normal_group_num = 1;
+    lex->max_normal_group_num = tre_check_groups(s, len) + 1;
     lex->state = 0;
 
     if (s) {

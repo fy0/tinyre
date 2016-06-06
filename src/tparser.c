@@ -191,7 +191,7 @@ bool parse_back_ref(tre_Parser *ps) {
 }
 
 bool parse_block(tre_Parser* ps) {
-    bool ret, ret2;
+    bool ret;
     INS_List* last_ins;
     tre_Token *tk = &(ps->lex->token);
 
@@ -199,12 +199,23 @@ bool parse_block(tre_Parser* ps) {
 
     last_ins = ps->m_cur->codes;
 
-    ret = parse_char(ps);
-    if (!ret) ret = parse_group(ps);
-    if (!ret) ret = parse_back_ref(ps);
-    if (!ret) {
-        ret2 = parse_or(ps);
-        if (ret2) return ret2;
+    switch (tk->value) {
+        case TK_CHAR: case TK_CHAR_SPE: case '[':
+            ret = parse_char(ps);
+            break;
+        case TK_BACK_REF:
+            ret = parse_back_ref(ps);
+            break;
+        case '|':
+            ret = parse_or(ps);
+            if (ret) return ret;
+            break;
+        case '(':
+            ret = parse_group(ps);
+            break;
+        default:
+            ret = false;
+            break;
     }
 
     if (ret) {
@@ -277,6 +288,7 @@ bool parse_block(tre_Parser* ps) {
         return false;
     }
     
+    TRE_DEBUG_PRINT("BLOCK_END\n");
     return true;
 }
 
@@ -461,6 +473,7 @@ bool parse_group(tre_Parser* ps) {
 
     ps->m_cur = last_group;
     tre_lexer_next(ps->lex);
+    TRE_DEBUG_PRINT("GROUP_END\n");
     return true;
 }
 

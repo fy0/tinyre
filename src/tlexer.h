@@ -55,9 +55,10 @@ typedef struct tre_Lexer {
     //TokenGroupName* group_names;
 } tre_Lexer;
 
-int tre_lexer_next(tre_Lexer* lex);
+int tre_check_groups(uint32_t *s, int len);
+int tre_lexer_next(tre_Lexer *lex);
 
-tre_Lexer* tre_lexer_new(uint32_t* s, int len);
+tre_Lexer* tre_lexer_new(uint32_t *s, int len);
 void tre_lexer_free(tre_Lexer *lex);
 
 #define ERR_LEXER_UNBALANCED_PARENTHESIS        -3
