@@ -104,7 +104,7 @@ int read_int(tre_Lexer *lex, char end_terminal, int *plen) {
 
     int num = _read_x_int(start, p, 10, _dec, 0);
     if (plen) {
-        if (end_terminal && (*(p + (p - start)) != end_terminal)) {
+        if (end_terminal && (*(p + (p - start) - 1) != end_terminal)) {
             return -1;
         }
     }
@@ -142,7 +142,7 @@ int token_char_accept(tre_Lexer *lex, uint32_t code, bool use_back_ref) {
             lex->token.value = TK_CHAR;
         } else {
             // 如果不是，读下一个字符
-            code = char_next(lex);
+            code = char_lookahead(lex);
             if (is_spe_char(code)) {
                 // 能确定为特殊匹配字符的话，读取结束
                 lex->token.extra.code = code;
@@ -153,14 +153,17 @@ int token_char_accept(tre_Lexer *lex, uint32_t code, bool use_back_ref) {
                 bool is_ok = false;
 
                 if (code == 'x') {
+                    code = char_next(lex);
                     num = read_hex(lex, 2, &is_ok);
                     if (!is_ok) return ERR_LEXER_HEX_ESCAPE;
                     char_nextn(lex, 2);
                 } else if (code == 'u') {
+                    code = char_next(lex);
                     num = read_hex(lex, 4, &is_ok);
                     if (!is_ok) return ERR_LEXER_UNICODE_ESCAPE;
                     char_nextn(lex, 4);
                 } else if (code == 'U') {
+                    code = char_next(lex);
                     num = read_hex(lex, 8, &is_ok); // unicode 6.0 \U0000000A
                     if (!is_ok) return ERR_LEXER_UNICODE6_ESCAPE;
                     char_nextn(lex, 8);
@@ -179,7 +182,7 @@ int token_char_accept(tre_Lexer *lex, uint32_t code, bool use_back_ref) {
                                 lex->token.extra.code = 0;
                             } else {
                                 lex->token.value = TK_BACK_REF;
-                                lex->token.extra.code = num;
+                                lex->token.extra.index = num;
                             }
                         } else {
                             lex->token.value = TK_CHAR;
@@ -349,22 +352,24 @@ int tre_lexer_next(tre_Lexer* lex) {
                                     break;
                                 case 'P':
                                     // group name
-                                    code = char_nextn(lex, 1);
+                                    code = char_lookahead(lex);
                                     if (code == '<') {
                                         code = char_next(lex);
                                         name = read_group_name(lex, '>', &len);
                                         if (!name) return ERR_LEXER_BAD_GROUP_NAME;
                                         code = char_nextn(lex, len+1); // name and '>'
+
                                         lex->token.extra.group_type = GT_NORMAL;
                                         lex->token.extra.group_name = name;
                                         lex->token.extra.group_name_len = len;
                                     } else if (code == '=') {
                                         // code for back reference (?P=)
+                                        code = char_next(lex);
                                         name = read_group_name(lex, ')', &len);
                                         if (!name) return ERR_LEXER_BAD_GROUP_NAME_IN_BACKREF;
+                                        code = char_nextn(lex, len); // skip name
 
-                                        lex->token.value = TK_BACK_REF;
-                                        lex->token.extra.group_type = 2;
+                                        lex->token.extra.group_type = GT_BACKREF;
                                         lex->token.extra.group_name = name;
                                         lex->token.extra.group_name_len = len;
                                     } else {
@@ -463,7 +468,12 @@ int tre_check_groups(uint32_t *s, int len) {
         if (s[i] == '\\') i++;
         else if (s[i] == '(') {
             if (s[i + 1] == '?') {
-                if (s[i + 2] == 'P') num++;
+                if (s[i + 2] == 'P') {
+                    if (s[i + 3] == '<') {
+                        i += 2;
+                        num++;
+                    }
+                }
                 else if (s[i + 2] == '(') i += 2;
                 i++;
             } else num++;
@@ -482,7 +492,7 @@ tre_Lexer* tre_lexer_new(uint32_t *s, int len) {
     tre_Lexer* lex = _new(tre_Lexer, 1);
     lex->extra_flag = 0;
     lex->max_normal_group_num = tre_check_groups(s, len) + 1;
-    printf("1111111111111 %d\n", lex->max_normal_group_num);
+    //printf("AAAAAAAAA %d\n", lex->max_normal_group_num);
     lex->state = 0;
 
     if (s) {

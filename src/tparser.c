@@ -296,6 +296,7 @@ bool parse_block(tre_Parser* ps) {
 bool parse_group(tre_Parser* ps) {
     int gindex;
     int group_type;
+    int group_extra;
     tre_Token *tk = &(ps->lex->token);
     ParserMatchGroup* last_group;
     uint32_t *gname = tk->extra.group_name;
@@ -310,7 +311,7 @@ bool parse_group(tre_Parser* ps) {
     group_type = tk->extra.group_type;
 
     // code for back reference (?P=), backref group is not real group
-    if (group_type == GT_BACKREF_CONDITIONAL_INDEX) {
+    if (group_type == GT_BACKREF) {
         int i = 1;
         for (ParserMatchGroup* pg = ps->m_start->next; pg; pg = pg->next) {
             if (pg->name && (memcmp(tk->extra.group_name, pg->name, tk->extra.group_name_len) == 0)) {
@@ -322,7 +323,9 @@ bool parse_group(tre_Parser* ps) {
                 ps->m_cur->codes = ps->m_cur->codes->next;
                 ps->m_cur->codes->next = NULL;
                 free(tk->extra.group_name);
-                tre_lexer_next(ps->lex);
+
+                tre_lexer_next(ps->lex); // skip (
+                tre_lexer_next(ps->lex); // skip ）
                 return true;
             }
             i++;
@@ -336,6 +339,8 @@ bool parse_group(tre_Parser* ps) {
         gindex = 1; // 注意 gindex 不等于 avaliable_group 这里我犯过一次错误
     } else {
         gindex = ps->lex->max_normal_group_num;
+        // used by condition backref (index)
+        group_extra = tk->extra.index;
     }
 
     // code for (?<=...) (?<!...)
@@ -369,17 +374,30 @@ bool parse_group(tre_Parser* ps) {
     ps->m_cur->or_num = 0;
     ps->m_cur->or_list = NULL;
     ps->m_cur->name = (group_type == GT_NORMAL) ? gname : NULL;
+    ps->m_cur->name_len = gname_len;
     ps->m_cur->group_type = group_type;
     ps->m_cur->codes->next = NULL;
 
     // code for conditional backref
-    // TODO:明显的不和谐
-    if (group_type == GT_BACKREF_CONDITIONAL_GROUPNAME && (!gname)) {
-        // (?(0)...) is normal group
-        group_type = ps->m_cur->group_type = 0;
+    if (group_type == GT_BACKREF_CONDITIONAL_INDEX) {
+        ps->m_cur->group_extra = group_extra;
+        ps->m_cur->group_type = GT_BACKREF_CONDITIONAL_INDEX;
     }
-    if (group_type >= GT_BACKREF_CONDITIONAL_INDEX) {
-        ps->m_cur->group_extra = 0; // flag
+    if (group_type == GT_BACKREF_CONDITIONAL_GROUPNAME) {
+        int i = 1;
+        bool ok = false;
+        for (ParserMatchGroup* pg = ps->m_start->next; pg; pg = pg->next) {
+            if (pg->group_type == GT_NORMAL && pg->name && (memcmp(gname, pg->name, gname_len) == 0)) {
+                ps->m_cur->group_extra = i;
+                ok = true;
+                break;
+            }
+            i++;
+        }
+        if (!ok) {
+            ps->error_code = ERR_PARSER_UNKNOWN_GROUP_NAME;
+            return false;
+        }
     }
     // end
 
@@ -410,32 +428,7 @@ bool parse_group(tre_Parser* ps) {
     // end
 
     // code for conditional backref
-    if (group_type >= GT_BACKREF_CONDITIONAL_GROUPNAME) {
-        if (gname) {
-            int i = 1;
-            bool ok = false;
-            for (ParserMatchGroup* pg = ps->m_start->next; pg; pg = pg->next) {
-                if (pg->group_type == GT_NORMAL && pg->name && (memcmp(gname, pg->name, gname_len) == 0)) {
-                    ps->m_cur->group_extra = i;
-                    ok = true;
-                    break;
-                }
-                i++;
-            }
-            if (!ok) {
-                ps->error_code = ERR_PARSER_UNKNOWN_GROUP_NAME;
-                return false;
-            }
-        } else {
-            ps->m_cur->group_extra = group_type - GT_BACKREF_CONDITIONAL_GROUPNAME;
-            /* not an error
-            if (m_cur->group_extra >= avaliable_group) {
-                error_code = ERR_PARSER_INVALID_GROUP_INDEX;
-                return NULL;
-            }*/
-            ps->m_cur->group_type = GT_BACKREF_CONDITIONAL_GROUPNAME;
-        }
-
+    if (group_type >= GT_BACKREF_CONDITIONAL_INDEX) {
         // without "no" branch
         if (!ps->m_cur->or_list) {
             OR_List* or_list = _new(OR_List, 1);
