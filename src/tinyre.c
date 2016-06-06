@@ -44,6 +44,8 @@ void tre_err(int err_code) {
         printf_u8("input error: impossible token\n");
     } else if (err_code == ERR_PARSER_UNKNOWN_GROUP_NAME) {
         printf_u8("input error: unknow group name\n");
+    } else if (err_code == ERR_PARSER_CONDITIONAL_BACKREF) {
+        printf_u8("input error: conditional backref with more than two branches\n");
     } else if (err_code == ERR_PARSER_INVALID_GROUP_INDEX) {
         printf_u8("input error: invalid group index in conditional backref\n");
     } else {

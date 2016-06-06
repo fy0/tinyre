@@ -133,8 +133,8 @@ bool parse_or(tre_Parser *ps) {
     tre_lexer_next(ps->lex);
 
     // code for conditional backref
-    if (ps->m_cur->group_type >= GT_BACKREF_CONDITIONAL_GROUPNAME) {
-        if (ps->m_cur->group_extra) {
+    if (ps->m_cur->group_type >= GT_BACKREF_CONDITIONAL_INDEX) {
+        if (ps->m_cur->or_num) {
             ps->error_code = ERR_PARSER_CONDITIONAL_BACKREF;
             return false;
         }
@@ -209,6 +209,7 @@ bool parse_block(tre_Parser* ps) {
         case '|':
             ret = parse_or(ps);
             if (ret) return ret;
+            if (ps->error_code) return false;
             break;
         case '(':
             ret = parse_group(ps);
