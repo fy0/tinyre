@@ -55,10 +55,10 @@ typedef struct tre_Lexer {
     //TokenGroupName* group_names;
 } tre_Lexer;
 
-tre_Lexer* tre_lexer_new(uint32_t* s, int len);
 int tre_lexer_next(tre_Lexer* lex);
 
-//void token_info_free(TokenListInfo* tki);
+tre_Lexer* tre_lexer_new(uint32_t* s, int len);
+void tre_lexer_free(tre_Lexer *lex);
 
 #define ERR_LEXER_UNBALANCED_PARENTHESIS        -3
 #define ERR_LEXER_UNEXPECTED_END_OF_PATTERN     -4

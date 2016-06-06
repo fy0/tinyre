@@ -188,7 +188,7 @@ int token_char_accept(tre_Lexer *lex, uint32_t code, bool use_back_ref) {
     } else {
         // 若非转义字符，那么一切都很简单
         lex->token.extra.code = code;
-        lex->token.value = TK_CHAR;
+        lex->token.value = (code == '.') ? TK_CHAR_SPE : TK_CHAR;
     }
     return 0;
 }
@@ -467,3 +467,8 @@ tre_Lexer* tre_lexer_new(uint32_t* s, int len) {
     }
     return lex;
 }
+
+void tre_lexer_free(tre_Lexer *lex) {
+    free(lex);
+}
+

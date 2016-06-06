@@ -85,7 +85,7 @@ int do_ins_cmp(VMState* vms) {
     uint32_t char_code = *(snap->codes + 1);
 
 #ifdef TRE_DEBUG
-    printf_u8("INS_CMP ");
+    printf_u8("%12s ", "CMP");
     putcode(char_code);
     printf(" ");
     putcode(snap->chrcode);
@@ -120,7 +120,7 @@ int do_ins_cmp_spe(VMState* vms) {
     VMSnap* snap = vms->snap;
     uint32_t char_code = *(snap->codes + 1);
 
-    TRE_DEBUG_PRINT("INS_CMP_SPE\n");
+    TRE_DEBUG_PRINT("%12s\n", "CMP_SPE");
 
     if (snap->text_end) return 0;
     if (char_cmp_spe(char_code, snap->chrcode, vms->flag)) {
@@ -150,7 +150,7 @@ int do_ins_cmp_multi(VMState* vms, bool is_ncmp) {
     uint32_t* data = snap->codes + 1;
     int num = *data++;
 
-    TRE_DEBUG_PRINT("INS_CMP_MULTI\n");
+    TRE_DEBUG_PRINT("%12s\n", "CMP_MULTI");
 
     if (snap->text_end) return 0;
 
@@ -187,7 +187,7 @@ _INLINE static
 int do_ins_cmp_backref(VMState* vms) {
     int index = *(vms->snap->codes + 1);
 
-    TRE_DEBUG_PRINT("INS_CMP_BACKREF\n");
+    TRE_DEBUG_PRINT("%12s\n", "CMP_BACKREF");
 
     if (vms->snap->text_end) return 0;
     if (index >= vms->group_num)
@@ -214,7 +214,7 @@ int do_ins_cmp_backref(VMState* vms) {
 
 _INLINE static
 void save_snap(VMState* vms) {
-    TRE_DEBUG_PRINT("INS_SAVE_SNAP\n");
+    TRE_DEBUG_PRINT("%12s\n", "SAVE_SNAP");
     VMSnap* snap = get_cached_snap(vms);
     if (snap) {
         VMSnap *src = vms->snap;
@@ -240,7 +240,7 @@ _INLINE static
 int do_ins_jmp(VMState* vms) {
     VMSnap* snap = vms->snap;
     int offset = *(snap->codes + 1);
-    TRE_DEBUG_PRINT("INS_JMP\n");
+    TRE_DEBUG_PRINT("%12s\n", "JMP");
     snap->codes = vms->groups[snap->cur_group].codes + offset + 2;
     return 1;
 }
@@ -253,7 +253,7 @@ int do_ins_cmp_group(VMState* vms) {
     MatchGroup* g = vms->groups + index;
 
 #ifdef TRE_DEBUG
-    printf("INS_CMP_GROUP %d\n", index);
+    printf("%12s %d\n", "CMP_GROUP", index);
 #endif
 
     // works for special groups (?=) (?!) (?<=) (?<!)
@@ -324,7 +324,7 @@ int do_ins_group_end(VMState* vms) {
     VMSnap* snap_tmp;
 
 #ifdef TRE_DEBUG
-    printf("INS_GROUP_END %d\n", *(snap->codes + 1));
+    printf("%12s %d\n", "GROUP_END", *(snap->codes + 1));
 #endif
 
     // load cache
@@ -388,6 +388,7 @@ int try_backtracking(VMState* vms) {
         snap = snap->prev;
         vms->snap = snap;
         for (int i=0; i<vms->group_num; i++) {
+            //printf("11111111111111 %d %d\n", vms->match_results[i].head, snap->str_pos);
             if (vms->match_results[i].head && vms->match_results[i].head > snap->str_pos) {
                 vms->match_results[i].head = NULL;
             }
@@ -395,8 +396,8 @@ int try_backtracking(VMState* vms) {
         cache_old_snap(vms, tmp);
         greed = snap->mr.enable == 1 ? true : false;
 
-        if (greed) TRE_DEBUG_PRINT("INS_BACKTRACK\n");
-        else TRE_DEBUG_PRINT("INS_BACKTRACK_NG\n");
+        if (greed) TRE_DEBUG_PRINT("%12s\n", "BACKTRACK");
+        else TRE_DEBUG_PRINT("%12s\n", "BACKTRACK_NG");
 
         if (greed) {
             snap->mr.enable = 0;
@@ -404,7 +405,7 @@ int try_backtracking(VMState* vms) {
         }
         return 1;
     }
-    TRE_DEBUG_PRINT("INS_BACKTRACK\n");
+    TRE_DEBUG_PRINT("%12s\n", "BACKTRACK");
     return 0;
 }
 
@@ -414,8 +415,8 @@ int do_ins_checkpoint(VMState* vms, bool greed) {
     int llimit = *(snap->codes + 1);
     int rlimit = *(snap->codes + 2);
 
-    if (greed) TRE_DEBUG_PRINT("INS_CHECK_POINT\n");
-    else TRE_DEBUG_PRINT("INS_CHECK_POINT_NG\n");
+    if (greed) TRE_DEBUG_PRINT("%12s\n", "CHECK_POINT");
+    else TRE_DEBUG_PRINT("%12s\n", "CHECK_POINT_NG");
 
     snap->codes += 3;
 
@@ -549,7 +550,7 @@ int vm_step(VMState* vms) {
     } else if (cur_ins == ins_match_start) {
         // ^
         // Tip for multiline: \n is newline, \r is nothing, tested.
-        TRE_DEBUG_PRINT("INS_MATCH_START\n");
+        TRE_DEBUG_PRINT("%12s\n", "MATCH_START");
         if (snap->str_pos == vms->input_str || ((vms->flag & FLAG_MULTILINE) && (*(snap->str_pos - 1) == '\n'))) {
             snap->codes += 1;
             ret = 1;
@@ -558,7 +559,7 @@ int vm_step(VMState* vms) {
         }
     } else if (cur_ins == ins_match_end) {
         // $
-        TRE_DEBUG_PRINT("INS_MATCH_END\n");
+        TRE_DEBUG_PRINT("%12s\n", "MATCH_END");
         if (snap->text_end || ((vms->flag & FLAG_MULTILINE) && (snap->chrcode == '\n'))) {
             snap->codes += 1;
             ret = 1;

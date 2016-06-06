@@ -38,7 +38,7 @@ PyObject* tre_Match_c2py(tre_Match* m)
     for (i = 0; i < m->groupnum; i++) {
         PyObject* t2 = PyTuple_New(3);
         if (m->groups[i].name)
-            PyTuple_SetItem(t2, 0, PyUnicode_FromString(m->groups[i].name));
+            PyTuple_SetItem(t2, 0, PyUnicode_FromKindAndData(PyUnicode_4BYTE_KIND, m->groups[i].name, m->groups[i].name_len));
         else {
             Py_INCREF(Py_None);
             PyTuple_SetItem(t2, 0, Py_None);

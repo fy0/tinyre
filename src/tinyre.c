@@ -75,7 +75,8 @@ tre_Pattern* tre_compile(char* s, int flag, int* err_code) {
         groups->flag = flag | lexer->extra_flag;
     }
 
-    //token_info_free(tki);
+    tre_lexer_free(lexer);
+    free(buf);
     return groups;
 }
 
