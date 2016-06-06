@@ -275,6 +275,7 @@ int tre_lexer_next(tre_Lexer* lex) {
 
                         // read left limit a{1
                         llimit = read_int(lex, 0, &count);
+                        if (count == 0) goto __bad_token;
                         code = char_nextn(lex, count+1);
 
                         // read comma a{1,
@@ -340,7 +341,7 @@ int tre_lexer_next(tre_Lexer* lex) {
                                     // code for conditional backref
                                     name = read_group_name(lex, ')', &len);
                                     if (name) {
-                                        code = char_next(lex);
+                                        code = char_nextn(lex, len);
                                         lex->token.extra.group_type = GT_BACKREF_CONDITIONAL_GROUPNAME;
                                         lex->token.extra.group_name = name;
                                         lex->token.extra.group_name_len = len;
@@ -349,7 +350,7 @@ int tre_lexer_next(tre_Lexer* lex) {
                                         if (i == -1) {
                                             return ERR_LEXER_INVALID_GROUP_NAME_OR_INDEX;
                                         } else {
-                                            code = char_next(lex);
+                                            code = char_nextn(lex, len);
                                             lex->token.extra.group_type = GT_BACKREF_CONDITIONAL_INDEX;
                                             lex->token.extra.index = i;
                                         }
