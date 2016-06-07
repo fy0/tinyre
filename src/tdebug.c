@@ -66,28 +66,6 @@ void debug_token_print(tre_Lexer *lex) {
         putchar('\n');
     }
     putchar('\n');
-
-
-    /*for (tre_Token *p = tokens; p != tokens + len; p++) {
-        printf("%8d %12d ", p->token, p->info.code);
-        if (p->token < FIRST_TOKEN) {
-            printf("T ");
-            putchar(p->token);
-        } else {
-            if (p->token == TK_CHAR) {
-                printf("C ");
-                putcode(p->info.code);
-            } else if (p->token == TK_SPE_CHAR) {
-                printf("S ");
-                if (p->info.code != '.') putchar('\\');
-                putcode(p->info.code);
-            } else if (p->token == TK_BACK_REF) {
-                printf("R %d\n", p->info.code);
-            }
-        }
-        putchar('\n');
-    }
-    putchar('\n');*/
 }
 
 void debug_ins_list_print(ParserMatchGroup* groups) {
