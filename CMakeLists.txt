@@ -2,7 +2,8 @@
 cmake_minimum_required(VERSION 2.8)
 
 project (tinyre)
-set(CMAKE_BUILD_TYPE Debug)
+#set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_BUILD_TYPE Release)
 set(build_target demo)
 #set(build_target py3lib)
 

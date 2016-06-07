@@ -388,7 +388,7 @@ int try_backtracking(VMState* vms) {
         snap = snap->prev;
         vms->snap = snap;
         for (int i=0; i<vms->group_num; i++) {
-            if (vms->match_results[i].head && vms->match_results[i].head > snap->str_pos) {
+            if (vms->match_results[i].head && vms->match_results[i].head >= snap->str_pos) {
                 vms->match_results[i].head = NULL;
             }
         }

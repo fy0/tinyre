@@ -36,18 +36,24 @@ class TRE_Match:
         groupspan = []
         grouptext = []
         groupdict = {}
+        default_slots = []
         for i in data:
             name, a, b = i
             span = (a, b)
             text = match_text[a:b] if a is not None else None
             if i[0]:
                 groupdict[i[0]] = (span, text)
+            if span[0] is None:
+                default_slots.append(True)
+            else:
+                default_slots.append(False)
             groupspan.append(span)
             grouptext.append(text)
         self.__text__ = match_text
         self.__groupspan__ = tuple(groupspan)
         self.__grouptext__ = tuple(grouptext)
         self.__groupdict__ = groupdict
+        self.__default_slots__ = default_slots
         self.lastindex = None
 
         if groupspan:
@@ -61,7 +67,10 @@ class TRE_Match:
         return self.__grouptext__[i]
 
     def __get_text_by_name__(self, i):
-        return self.__groupdict__[i][1]
+        if i in self.__groupdict__:
+            return self.__groupdict__[i][1]
+        else:
+            return None
 
     def span(self, index=0):
         a, b = self.__groupspan__[index]
@@ -84,8 +93,15 @@ class TRE_Match:
         else:
             return tuple(ret)
 
-    def groups(self):
-        return self.__grouptext__[1:]
+    def groups(self, default=None):
+        if default is None:
+            return self.__grouptext__[1:]
+        else:
+            ret = list(self.__grouptext__[1:])
+            for i in range(1, len(self.__default_slots__)):
+                if self.__default_slots__[i]:
+                    ret[i-1] = default
+            return tuple(ret)
 
     def groupdict(self):
         ret = {}

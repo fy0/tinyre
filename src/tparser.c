@@ -138,7 +138,6 @@ bool parse_or(tre_Parser *ps) {
             ps->error_code = ERR_PARSER_CONDITIONAL_BACKREF;
             return false;
         }
-        ps->m_cur->group_extra = 1;
     }
     // end
 
@@ -315,7 +314,7 @@ bool parse_group(tre_Parser* ps) {
     if (group_type == GT_BACKREF) {
         int i = 1;
         for (ParserMatchGroup* pg = ps->m_start->next; pg; pg = pg->next) {
-            if (pg->name && (memcmp(tk->extra.group_name, pg->name, tk->extra.group_name_len) == 0)) {
+            if (pg->name && (memcmp(tk->extra.group_name, pg->name, tk->extra.group_name_len*sizeof(uint32_t)) == 0)) {
                 ps->m_cur->codes->ins = ins_cmp_backref;
                 ps->m_cur->codes->data = _new(uint32_t, 1);
                 ps->m_cur->codes->len = 1;
@@ -388,9 +387,11 @@ bool parse_group(tre_Parser* ps) {
         int i = 1;
         bool ok = false;
         for (ParserMatchGroup* pg = ps->m_start->next; pg; pg = pg->next) {
-            if (pg->group_type == GT_NORMAL && pg->name && (memcmp(gname, pg->name, gname_len) == 0)) {
+            if (pg->group_type == GT_NORMAL && pg->name && (memcmp(gname, pg->name, gname_len*sizeof(uint32_t)) == 0)) {
                 ps->m_cur->group_extra = i;
+                ps->m_cur->group_type = GT_BACKREF_CONDITIONAL_INDEX;
                 ok = true;
+                free(tk->extra.group_name);
                 break;
             }
             i++;
@@ -401,11 +402,6 @@ bool parse_group(tre_Parser* ps) {
         }
     }
     // end
-
-    if (gname) {
-        //if (group_type == GT_NORMAL) ps->tk_info->group_names->name = NULL; // fix for mem free
-        //pi->tk_info->group_names = pi->tk_info->group_names->next;
-    }
 
     while (ps->lex->token.value != TK_END && ps->lex->token.value != ')') {
         if (!parse_block(ps)) return false;
