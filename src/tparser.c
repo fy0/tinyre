@@ -64,7 +64,7 @@ bool parser_char_set(tre_Parser *ps) {
         if (num + 1 >= size_all) {
             size_all *= 2;
             tmp = data - data_start;
-            data_start = realloc(data_start, 3 * size_all + 1);
+            data_start = realloc(data_start, (3 * size_all + 1)*sizeof(uint32_t));
             data = data_start + tmp;
         }
 
