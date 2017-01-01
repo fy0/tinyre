@@ -84,16 +84,16 @@ void debug_ins_list_print(ParserMatchGroup* groups) {
         gnum++;
 
         for (INS_List* code = g->codes_start; code->next; code = code->next) {
-            if (code->ins == ins_cmp) {
+            if (code->ins == INS_CMP) {
                 printf_u8("%15s ", "CMP");
                 putcode(*(int*)code->data);
                 putchar('\n');
-            } else if (code->ins == ins_cmp_spe) {
+            } else if (code->ins == INS_CMP_SPE) {
                 printf_u8("%15s ", "CMP_SPE");
                 putcode(*(int*)code->data);
                 putchar('\n');
-            } else if (code->ins == ins_cmp_multi || code->ins == ins_ncmp_multi) {
-                if (code->ins == ins_cmp_multi) printf_u8("%15s %d ", "CMP_MULTI", *(int*)code->data);
+            } else if (code->ins == INS_CMP_MULTI || code->ins == INS_NCMP_MULTI) {
+                if (code->ins == INS_CMP_MULTI) printf_u8("%15s %d ", "CMP_MULTI", *(int*)code->data);
                 else printf_u8("%15s %d ", "NCMP_MULTI", *(int*)code->data);
                 printf_u8("%6d    ", *((int*)code->data + 1));
                 putcode(*((int*)code->data + 2));
@@ -115,19 +115,19 @@ void debug_ins_list_print(ParserMatchGroup* groups) {
 
                     putchar('\n');
                 }
-            } else if (code->ins == ins_cmp_backref) {
+            } else if (code->ins == INS_CMP_BACKREF) {
                 printf_u8("%15s %d\n", "CMP_BACKREF", *(int*)code->data);
-            } else if (code->ins == ins_cmp_group) {
+            } else if (code->ins == INS_CMP_GROUP) {
                 printf_u8("%15s %d\n", "CMP_GROUP", *(int*)code->data);
-            } else if (code->ins == ins_check_point) {
+            } else if (code->ins == INS_CHECK_POINT) {
                 printf_u8("%15s %d %d\n", "CHECK_POINT", *(int*)code->data, *((int*)code->data + 1));
-            } else if (code->ins == ins_check_point_no_greed) {
+            } else if (code->ins == INS_CHECK_POINT_NO_GREED) {
                 printf_u8("%15s %d %d\n", "CHECK_POINT_NG", *(int*)code->data, *((int*)code->data + 1));
-            } else if (code->ins == ins_match_start) {
+            } else if (code->ins == INS_MATCH_START) {
                 printf_u8("%15s\n", "MATCH_START");
-            } else if (code->ins == ins_match_end) {
+            } else if (code->ins == INS_MATCH_END) {
                 printf_u8("%15s\n", "MATCH_END");
-            } else if (code->ins == ins_group_end) {
+            } else if (code->ins == INS_GROUP_END) {
                 printf_u8("%15s %d\n", "GROUP_END", *(int*)code->data);
             }
         }

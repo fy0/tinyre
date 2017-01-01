@@ -22,11 +22,11 @@ bool parse_single_char(tre_Parser *ps) {
     if (tk->value == TK_CHAR || tk->value == TK_CHAR_SPE) {
         // CODE GENERATE
         // CMP/CMP_SPE CODE
-        ps->m_cur->codes->ins = tk->value == TK_CHAR ? ins_cmp : ins_cmp_spe;
-        ps->m_cur->codes->data = _new(uint32_t, 1);
+        ps->m_cur->codes->ins = tk->value == TK_CHAR ? INS_CMP : INS_CMP_SPE;
+        ps->m_cur->codes->data = tre_new(uint32_t, 1);
         ps->m_cur->codes->len = 1;
         *ps->m_cur->codes->data = tk->extra.code;
-        ps->m_cur->codes->next = _new(INS_List, 1);
+        ps->m_cur->codes->next = tre_new(INS_List, 1);
         ps->m_cur->codes = ps->m_cur->codes->next;
         ps->m_cur->codes->next = NULL;
         // END
@@ -53,8 +53,8 @@ bool parser_char_set(tre_Parser *ps) {
 
     // CODE GENERATE
     // CMP_MULTI NUM [TYPE1 CODE1 NOOP], [TYPE2 CODE2 NOOP], [TYPE3 RANGE1 RANGE2] ...
-    ps->m_cur->codes->ins = is_ncmp ? ins_ncmp_multi : ins_cmp_multi;
-    data_start = _new(uint32_t, 3 * size_all + 1);
+    ps->m_cur->codes->ins = is_ncmp ? INS_NCMP_MULTI : INS_CMP_MULTI;
+    data_start = tre_new(uint32_t, 3 * size_all + 1);
 
     data = (uint32_t*)data_start+1;
 
@@ -91,7 +91,7 @@ bool parser_char_set(tre_Parser *ps) {
     data = (int*)ps->m_cur->codes->data;
     *(data++) = num;
 
-    ps->m_cur->codes->next = _new(INS_List, 1);
+    ps->m_cur->codes->next = tre_new(INS_List, 1);
     ps->m_cur->codes = ps->m_cur->codes->next;
     ps->m_cur->codes->next = NULL;
     return true;
@@ -112,9 +112,9 @@ bool parse_other_tokens(tre_Parser *ps) {
     if (tk->value == '^' || tk->value == '$') {
         // CODE GENERATE
         // MATCH_START/MATCH_END
-        ps->m_cur->codes->ins = tk->value == '^' ? ins_match_start : ins_match_end;
+        ps->m_cur->codes->ins = tk->value == '^' ? INS_MATCH_START : INS_MATCH_END;
         ps->m_cur->codes->len = 0;
-        ps->m_cur->codes->next = _new(INS_List, 1);
+        ps->m_cur->codes->next = tre_new(INS_List, 1);
         ps->m_cur->codes = ps->m_cur->codes->next;
         ps->m_cur->codes->next = NULL;
         // END
@@ -141,7 +141,7 @@ bool parse_or(tre_Parser *ps) {
     }
     // end
 
-    or_list = _new(OR_List, 1);
+    or_list = tre_new(OR_List, 1);
     or_list->codes = ps->m_cur->codes;
     or_list->next = NULL;
 
@@ -157,11 +157,11 @@ bool parse_or(tre_Parser *ps) {
 
     // CODE GENERATE
     // GROUP_END -1
-    ps->m_cur->codes->ins = ins_group_end;
-    ps->m_cur->codes->data = _new(uint32_t, 1);
+    ps->m_cur->codes->ins = INS_GROUP_END;
+    ps->m_cur->codes->data = tre_new(uint32_t, 1);
     ps->m_cur->codes->len = 1;
     *ps->m_cur->codes->data = -1;
-    ps->m_cur->codes->next = _new(INS_List, 1);
+    ps->m_cur->codes->next = tre_new(INS_List, 1);
     ps->m_cur->codes = ps->m_cur->codes->next;
     ps->m_cur->codes->next = NULL;
     ps->m_cur->or_num++;
@@ -175,11 +175,11 @@ bool parse_back_ref(tre_Parser *ps) {
     if (tk->value == TK_BACK_REF) {
         // CODE GENERATE
         // CMP_BACKREF INDEX
-        ps->m_cur->codes->ins = ins_cmp_backref;
-        ps->m_cur->codes->data = _new(uint32_t, 1);
+        ps->m_cur->codes->ins = INS_CMP_BACKREF;
+        ps->m_cur->codes->data = tre_new(uint32_t, 1);
         ps->m_cur->codes->len = 1;
         *ps->m_cur->codes->data = tk->extra.index;
-        ps->m_cur->codes->next = _new(INS_List, 1);
+        ps->m_cur->codes->next = tre_new(INS_List, 1);
         ps->m_cur->codes = ps->m_cur->codes->next;
         ps->m_cur->codes->next = NULL;
         // END
@@ -268,12 +268,12 @@ bool parse_block(tre_Parser* ps) {
             // 将上一条指令（必然是一条匹配指令复制一遍）
             memcpy(ps->m_cur->codes, last_ins, sizeof(INS_List));
             // 为这条指令创建新的后继节点
-            ps->m_cur->codes->next = _new(INS_List, 1);
+            ps->m_cur->codes->next = tre_new(INS_List, 1);
             ps->m_cur->codes = ps->m_cur->codes->next;
             ps->m_cur->codes->next = NULL;
 
-            last_ins->ins = greed ? ins_check_point : ins_check_point_no_greed;
-            last_ins->data = _new(uint32_t, 2);
+            last_ins->ins = greed ? INS_CHECK_POINT : INS_CHECK_POINT_NO_GREED;
+            last_ins->data = tre_new(uint32_t, 2);
             last_ins->len = 2;
             *last_ins->data = llimit;
             *(last_ins->data + 1) = rlimit;
@@ -315,11 +315,11 @@ bool parse_group(tre_Parser* ps) {
         int i = 1;
         for (ParserMatchGroup* pg = ps->m_start->next; pg; pg = pg->next) {
             if (pg->name && (memcmp(tk->extra.group_name, pg->name, tk->extra.group_name_len*sizeof(uint32_t)) == 0)) {
-                ps->m_cur->codes->ins = ins_cmp_backref;
-                ps->m_cur->codes->data = _new(uint32_t, 1);
+                ps->m_cur->codes->ins = INS_CMP_BACKREF;
+                ps->m_cur->codes->data = tre_new(uint32_t, 1);
                 ps->m_cur->codes->len = 1;
                 *ps->m_cur->codes->data = i;
-                ps->m_cur->codes->next = _new(INS_List, 1);
+                ps->m_cur->codes->next = tre_new(INS_List, 1);
                 ps->m_cur->codes = ps->m_cur->codes->next;
                 ps->m_cur->codes->next = NULL;
                 free(tk->extra.group_name);
@@ -367,8 +367,8 @@ bool parse_group(tre_Parser* ps) {
     }
 
     // 创建新节点
-    ps->m_cur->next = _new(ParserMatchGroup, 1);
-    ps->m_cur->next->codes = ps->m_cur->next->codes_start = _new(INS_List, 1);
+    ps->m_cur->next = tre_new(ParserMatchGroup, 1);
+    ps->m_cur->next->codes = ps->m_cur->next->codes_start = tre_new(INS_List, 1);
     ps->m_cur = ps->m_cur->next;
     ps->m_cur->next = NULL;
     ps->m_cur->or_num = 0;
@@ -428,18 +428,18 @@ bool parse_group(tre_Parser* ps) {
     if (group_type >= GT_BACKREF_CONDITIONAL_INDEX) {
         // without "no" branch
         if (!ps->m_cur->or_list) {
-            OR_List* or_list = _new(OR_List, 1);
+            OR_List* or_list = tre_new(OR_List, 1);
             or_list->codes = ps->m_cur->codes;
             or_list->next = NULL;
             ps->m_cur->or_list = or_list;
             ps->m_cur->or_num++;
 
             // GROUP_END -1
-            ps->m_cur->codes->ins = ins_group_end;
-            ps->m_cur->codes->data = _new(uint32_t, 1);
+            ps->m_cur->codes->ins = INS_GROUP_END;
+            ps->m_cur->codes->data = tre_new(uint32_t, 1);
             ps->m_cur->codes->len = 1;
             *ps->m_cur->codes->data = -1;
-            ps->m_cur->codes->next = _new(INS_List, 1);
+            ps->m_cur->codes->next = tre_new(INS_List, 1);
             ps->m_cur->codes = ps->m_cur->codes->next;
             ps->m_cur->codes->next = NULL;
             // END
@@ -452,11 +452,11 @@ bool parse_group(tre_Parser* ps) {
 
     // CODE GENERATE
     // CMP_GROUP INDEX
-    last_group->codes->ins = ins_cmp_group;
-    last_group->codes->data = _new(uint32_t, 1);
+    last_group->codes->ins = INS_CMP_GROUP;
+    last_group->codes->data = tre_new(uint32_t, 1);
     last_group->codes->len = 1;
     *last_group->codes->data = gindex;
-    last_group->codes->next = _new(INS_List, 1);
+    last_group->codes->next = tre_new(INS_List, 1);
     last_group->codes = last_group->codes->next;
     last_group->codes->next = NULL;
     // END
@@ -541,15 +541,15 @@ void parser_init(tre_Parser* pas) {
 }
 
 tre_Pattern* tre_parser(tre_Lexer *lexer, int* perror_code) {
-    tre_Parser *ps = _new(tre_Parser, 1);
+    tre_Parser *ps = tre_new(tre_Parser, 1);
     tre_Pattern *ret;
 
     parser_init(ps);
     ps->lex = lexer;
 
     ParserMatchGroup *m_cur, *m_start;
-    m_cur = m_start = _new(ParserMatchGroup, 1);
-    m_start->codes = m_start->codes_start = _new(INS_List, 1);
+    m_cur = m_start = tre_new(ParserMatchGroup, 1);
+    m_start->codes = m_start->codes_start = tre_new(INS_List, 1);
     m_start->codes->next = NULL;
     m_start->group_type = 0;
     m_cur->next = NULL;
@@ -590,10 +590,10 @@ tre_Pattern* compact_group(ParserMatchGroup* parser_groups) {
     ParserMatchGroup *pg, *pg_tmp;
     INS_List *code, *code_tmp;
     OR_List *or_lst, *or_tmp;
-    tre_Pattern* ret = _new(tre_Pattern, 1);
+    tre_Pattern* ret = tre_new(tre_Pattern, 1);
 
     for (pg = parser_groups; pg; pg = pg->next) gnum++;
-    groups = _new(MatchGroup, gnum);
+    groups = tre_new(MatchGroup, gnum);
 
     gnum = 0;
     for (pg = parser_groups; pg; ) {
@@ -606,7 +606,7 @@ tre_Pattern* compact_group(ParserMatchGroup* parser_groups) {
         }
 
         // sizeof(int)*2 is space for group_end
-        g->codes = _new(uint32_t, code_lens + 2);
+        g->codes = tre_new(uint32_t, code_lens + 2);
         g->name = pg->name;
         g->name_len = pg->name_len;
         g->type = pg->group_type;
@@ -620,10 +620,10 @@ tre_Pattern* compact_group(ParserMatchGroup* parser_groups) {
                 while (or_lst && or_lst->codes == code) {
                     // code for conditional backref
                     if (pg->group_type == GT_BACKREF_CONDITIONAL_INDEX) {
-                        *data++ = ins_jmp;
+                        *data++ = INS_JMP;
                     // end
                     } else {
-                        *data++ = ins_save_snap;
+                        *data++ = INS_SAVE_SNAP;
                     }
                     *data = code_lens;
                     data -= 3;
@@ -654,7 +654,7 @@ tre_Pattern* compact_group(ParserMatchGroup* parser_groups) {
         // the final one
         free(code);
 
-        *data = ins_group_end;
+        *data = INS_GROUP_END;
         *(data + 1) = gnum;
 
         gnum++;

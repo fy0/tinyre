@@ -236,7 +236,7 @@ uint32_t* read_group_name(tre_Lexer *lex, char end_terminal, int *plen) {
         return NULL;
     }
 
-    name = _new(uint32_t, p - start);
+    name = tre_new(uint32_t, p - start);
     memcpy(name, start, (p - start) * sizeof(uint32_t));
     name[p - start - 1] = '\0';
 
@@ -496,7 +496,7 @@ int tre_check_groups(uint32_t *s, int len) {
 }
 
 tre_Lexer* tre_lexer_new(uint32_t *s, int len) {
-    tre_Lexer* lex = _new(tre_Lexer, 1);
+    tre_Lexer* lex = tre_new(tre_Lexer, 1);
     lex->extra_flag = 0;
     lex->max_normal_group_num = tre_check_groups(s, len) + 1;
     //printf("AAAAAAAAA %d\n", lex->max_normal_group_num);

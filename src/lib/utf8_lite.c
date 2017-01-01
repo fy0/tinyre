@@ -1,4 +1,4 @@
-
+﻿
 #include "utf8_lite.h"
 
 #include <stdio.h>

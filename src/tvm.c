@@ -6,7 +6,7 @@
 
 _INLINE static
 VMSnap* snap_dup(VMSnap* src) {
-    VMSnap* snap = _new(VMSnap, 1);
+    VMSnap* snap = tre_new(VMSnap, 1);
     memcpy(snap, src, sizeof(VMSnap));
     if (!stack_empty(src->run_cache)) {
         stack_copy(src->run_cache, snap->run_cache, RunCache);
@@ -59,8 +59,8 @@ int jump_one_cmp(VMState* vms) {
     VMSnap* snap = vms->snap;
     int ins = *snap->codes;
 
-    if (ins >= ins_cmp && ins <= ins_cmp_group) {
-        if (ins >= ins_cmp_multi && ins <= ins_ncmp_multi) {
+    if (ins >= INS_CMP && ins <= INS_CMP_GROUP) {
+        if (ins >= INS_CMP_MULTI && ins <= INS_NCMP_MULTI) {
             num = *(snap->codes + 1);
             snap->codes += (num * 3 + 2);
         } else {
@@ -224,7 +224,7 @@ void save_snap(VMState* vms) {
         if (rc.len < src->run_cache.top+1) {
             free(rc.data);
             rc.len = src->run_cache.top+1;
-            rc.data = _new(RunCache , rc.len);
+            rc.data = tre_new(RunCache , rc.len);
         }
         rc.top = src->run_cache.top;
         if (rc.top != -1) memcpy(rc.data, src->run_cache.data, sizeof(RunCache) * (src->run_cache.top+1));
@@ -461,120 +461,11 @@ int do_ins_save_snap(VMState* vms) {
 }
 
 
-int vm_step(VMState* vms) {
-    int ret;
-    VMSnap* snap = vms->snap;
-    uint32_t cur_ins = *snap->codes;
-    vm_check_text_end(vms);
-
-    if (cur_ins >= ins_cmp && cur_ins <= ins_group_end) {
-        // no greedy match
-        int group_cache;
-
-        if (cur_ins == ins_cmp) {
-            ret = do_ins_cmp(vms);
-        } else if (cur_ins == ins_cmp_spe) {
-            ret = do_ins_cmp_spe(vms);
-        } else if (cur_ins == ins_cmp_multi) {
-            ret = do_ins_cmp_multi(vms, false);
-        } else if (cur_ins == ins_ncmp_multi) {
-            ret = do_ins_cmp_multi(vms, true);
-        } else if (cur_ins == ins_cmp_backref) {
-            ret = do_ins_cmp_backref(vms);
-        } else if (cur_ins == ins_cmp_group) {
-            ret = do_ins_cmp_group(vms);
-        } else if (cur_ins == ins_group_end) {
-            group_cache = snap->cur_group;
-            ret = do_ins_group_end(vms);
-        }
-
-        if (ret) {
-            if (cur_ins < ins_cmp_group) {
-                vm_input_next(vms);
-            }
-            // CMP_GROUP is very different,
-            // It's begin of match, and end at GROUP_END.
-            // Other CMPs is both begin and end of one match.
-            if (cur_ins != ins_cmp_group) {
-                // match again when a? a+ a* a{x,y}
-                if (snap->mr.enable) {
-                    bool greed = snap->mr.enable == 1 ? true : false;
-                    snap->mr.cur_repeat++;
-
-                    if (greed) {
-                        // 贪婪模式 达到左边界，有资格保存回溯
-                        if (snap->mr.cur_repeat >= snap->mr.llimit && snap->mr.llimit != snap->mr.rlimit) {
-                            save_snap(vms);
-                        }
-                        // 达到右边界，越过匹配指令，跳出循环
-                        if (snap->mr.cur_repeat == snap->mr.rlimit) {
-                            snap->mr.enable = 0;
-                            snap->codes += ret;
-                        }
-                        // 特别的，匹配空串的组被强制跳过
-                        if ((cur_ins == ins_group_end) && (snap->mr.cur_repeat >= snap->mr.llimit) &&
-                                (snap->mr.cur_repeat != snap->mr.rlimit)) {
-                            // match "nothing" is no sense : (|)
-                            if (vms->match_results[group_cache].head == vms->match_results[group_cache].tail) {
-                                snap->mr.enable = 0;
-                                snap->codes += 2;
-                            }
-                        }
-                    } else {
-                        if (snap->mr.cur_repeat >= snap->mr.llimit) {
-                            if (((cur_ins != ins_group_end) && (snap->mr.cur_repeat != snap->mr.rlimit)) ||
-                                ((cur_ins == ins_group_end) && (snap->mr.cur_repeat != snap->mr.rlimit) && 
-                                 (vms->match_results[group_cache].head != vms->match_results[group_cache].tail))) {
-                                save_snap(vms);
-                            }
-                            snap->mr.enable = 0;
-                            snap->codes += ret;
-                        }
-                    }
-                } else {
-                    snap->codes += ret;
-                }
-            }
-        } else {
-            ret = try_backtracking(vms);
-        }
-    } else if (cur_ins == ins_check_point) {
-        ret = do_ins_checkpoint(vms, true);
-    } else if (cur_ins == ins_check_point_no_greed) {
-        ret = do_ins_checkpoint(vms, false);
-    } else if (cur_ins == ins_save_snap) {
-        ret = do_ins_save_snap(vms);
-    } else if (cur_ins == ins_jmp) {
-        ret = do_ins_jmp(vms);
-    } else if (cur_ins == ins_match_start) {
-        // ^
-        // Tip for multiline: \n is newline, \r is nothing, tested.
-        TRE_DEBUG_PRINT("%12s\n", "MATCH_START");
-        if (snap->str_pos == vms->input_str || ((vms->flag & FLAG_MULTILINE) && (*(snap->str_pos - 1) == '\n'))) {
-            snap->codes += 1;
-            ret = 1;
-        } else {
-            ret = try_backtracking(vms);
-        }
-    } else if (cur_ins == ins_match_end) {
-        // $
-        TRE_DEBUG_PRINT("%12s\n", "MATCH_END");
-        if (snap->text_end || ((vms->flag & FLAG_MULTILINE) && (snap->chrcode == '\n'))) {
-            snap->codes += 1;
-            ret = 1;
-        } else {
-            ret = try_backtracking(vms);
-        }
-    }
-
-    return ret;
-}
-
 uint32_t* u8str_to_u32str(const char* p, int* len) {
     int *ret, *p2;
     int i, code, slen = utf8_len(p);
 
-    ret = p2 = _new(int, slen + 1);
+    ret = p2 = tre_new(int, slen + 1);
 
     for (i = 0; i < slen; i++) {
         p = utf8_decode(p, &code);
@@ -587,7 +478,7 @@ uint32_t* u8str_to_u32str(const char* p, int* len) {
 }
 
 VMState* vm_init(tre_Pattern* groups_info, const char* input_str, int backtrack_limit) {
-    VMState* vms = _new(VMState, 1);
+    VMState* vms = tre_new(VMState, 1);
     vms->raw_input_str = input_str;
     vms->input_str = u8str_to_u32str(input_str, &(vms->input_len));
 
@@ -595,7 +486,7 @@ VMState* vm_init(tre_Pattern* groups_info, const char* input_str, int backtrack_
     vms->group_num_all = groups_info->num_all;
     vms->groups = groups_info->groups;
     if (groups_info->num_all > groups_info->num) {
-        vms->input_cache = (uint32_t**)_new(int*, groups_info->num_all - groups_info->num);
+        vms->input_cache = (uint32_t**)tre_new(int*, groups_info->num_all - groups_info->num);
     } else {
         vms->input_cache = NULL;
     }
@@ -604,12 +495,12 @@ VMState* vm_init(tre_Pattern* groups_info, const char* input_str, int backtrack_
     vms->backtrack_limit = backtrack_limit;
 
     // init match results of groups
-    vms->match_results = _new(GroupResultTemp, groups_info->num_all); //  tre.match(r'(?:a?)*y', 'z')
+    vms->match_results = tre_new(GroupResultTemp, groups_info->num_all); //  tre.match(r'(?:a?)*y', 'z')
     memset(vms->match_results, 0, sizeof(GroupResultTemp) * groups_info->num_all);
     vms->match_results[0].tmp = vms->input_str;
 
     // init first snap
-    vms->snap = _new(VMSnap, 1);
+    vms->snap = tre_new(VMSnap, 1);
     vms->snap->codes = groups_info->groups[0].codes;
     vms->snap->str_pos = vms->input_str;
     vms->snap->chrcode = *vms->input_str;
@@ -627,21 +518,129 @@ tre_GroupResult* vm_exec(VMState* vms) {
     int ret = 1;
     tre_GroupResult* results;
 
-    while (ret > 0) {
-        ret = vm_step(vms);
+    for (;;) {
+        VMSnap* snap = vms->snap;
+        int group_cache;
+        uint32_t cur_ins = *snap->codes;
+        vm_check_text_end(vms);
+
+        switch (cur_ins) {
+            // ============ CMP ==================
+            case INS_CMP:
+                ret = do_ins_cmp(vms);
+                break;
+            case INS_CMP_SPE:
+                ret = do_ins_cmp(vms);
+                break;
+            case INS_CMP_MULTI:
+                ret = do_ins_cmp_multi(vms, false);
+                break;
+            case INS_NCMP_MULTI:
+                ret = do_ins_cmp_multi(vms, true);
+                break;
+            case INS_CMP_BACKREF:
+                ret = do_ins_cmp_backref(vms);
+                break;
+            case INS_GROUP_END:
+                group_cache = snap->cur_group;
+                ret = do_ins_group_end(vms);
+                break;
+            // ===================================
+            case INS_CMP_GROUP:
+                ret = do_ins_cmp_group(vms);
+                //snap->codes += ret;
+                goto _ret_chk;
+            case INS_CHECK_POINT:
+                ret = do_ins_checkpoint(vms, true);
+                goto _loop_end_chk;
+            case INS_CHECK_POINT_NO_GREED:
+                ret = do_ins_checkpoint(vms, false);
+                goto _loop_end_chk;
+            case INS_SAVE_SNAP:
+                ret = do_ins_save_snap(vms);
+                goto _loop_end_chk;
+            case INS_JMP:
+                ret = do_ins_jmp(vms);
+                goto _loop_end_chk;
+            case INS_MATCH_START:
+                // ^
+                // Tip for multiline: \n is newline, \r is nothing, tested.
+                TRE_DEBUG_PRINT("%12s\n", "MATCH_START");
+                if (snap->str_pos == vms->input_str || ((vms->flag & FLAG_MULTILINE) && (*(snap->str_pos - 1) == '\n'))) {
+                    snap->codes += 1;
+                    ret = 1;
+                } else {
+                    ret = try_backtracking(vms);
+                }
+                goto _loop_end_chk;
+            case INS_MATCH_END:
+                // $
+                TRE_DEBUG_PRINT("%12s\n", "MATCH_END");
+                if (snap->text_end || ((vms->flag & FLAG_MULTILINE) && (snap->chrcode == '\n'))) {
+                    snap->codes += 1;
+                    ret = 1;
+                } else {
+                    ret = try_backtracking(vms);
+                }
+                goto _loop_end_chk;
+        }
+
+        if (ret) {
+            if (cur_ins != INS_GROUP_END) vm_input_next(vms);
+            // match again when a? a+ a* a{x,y}
+            if (snap->mr.enable) {
+                bool greed = snap->mr.enable == 1 ? true : false;
+                snap->mr.cur_repeat++;
+
+                if (greed) {
+                    // 贪婪模式 达到左边界，有资格保存回溯
+                    if (snap->mr.cur_repeat >= snap->mr.llimit && snap->mr.llimit != snap->mr.rlimit) {
+                        save_snap(vms);
+                    }
+                    // 达到右边界，越过匹配指令，跳出循环
+                    if (snap->mr.cur_repeat == snap->mr.rlimit) {
+                        snap->mr.enable = 0;
+                        snap->codes += ret;
+                    }
+                    // 特别的，匹配空串的组被强制跳过
+                    if ((cur_ins == INS_GROUP_END) && (snap->mr.cur_repeat >= snap->mr.llimit) &&
+                        (snap->mr.cur_repeat != snap->mr.rlimit)) {
+                        // match "nothing" is no sense : (|)
+                        if (vms->match_results[group_cache].head == vms->match_results[group_cache].tail) {
+                            snap->mr.enable = 0;
+                            snap->codes += 2;
+                        }
+                    }
+                } else {
+                    if (snap->mr.cur_repeat >= snap->mr.llimit) {
+                        if (((cur_ins != INS_GROUP_END) && (snap->mr.cur_repeat != snap->mr.rlimit)) ||
+                            ((cur_ins == INS_GROUP_END) && (snap->mr.cur_repeat != snap->mr.rlimit) &&
+                            (vms->match_results[group_cache].head != vms->match_results[group_cache].tail))) {
+                            save_snap(vms);
+                        }
+                        snap->mr.enable = 0;
+                        snap->codes += ret;
+                    }
+                }
+            } else {
+                snap->codes += ret;
+            }
+        }
+_ret_chk:
+        ret = ret ? ret : try_backtracking(vms);
+_loop_end_chk:
+        if (ret <= 0) break;
     }
 
     if (ret == -1) {
-        results = _new(tre_GroupResult, vms->group_num);
+        results = tre_new(tre_GroupResult, vms->group_num);
         memset(results, 0, sizeof(tre_GroupResult) * vms->group_num);
         for (i = 0; i < vms->group_num; i++) {
             if (vms->match_results[i].head && vms->match_results[i].tail) {
                 results[i].head = vms->match_results[i].head - vms->input_str;
                 results[i].tail = vms->match_results[i].tail - vms->input_str;
                 if (vms->groups[i].name) {
-                    //results[i].name = _new(char, strlen(vms->groups[i].name)+1);
-                    //memcpy(results[i].name, vms->groups[i].name, strlen(vms->groups[i].name)+1);
-                    results[i].name = _new(uint32_t, vms->groups[i].name_len + 1);
+                    results[i].name = tre_new(uint32_t, vms->groups[i].name_len + 1);
                     results[i].name_len = vms->groups[i].name_len;
                     memcpy(results[i].name, vms->groups[i].name, (vms->groups[i].name_len + 1) * sizeof(uint32_t));
                 }
@@ -677,4 +676,3 @@ void vm_free(VMState* vms)
     free(vms->match_results);
     free(vms);
 }
-

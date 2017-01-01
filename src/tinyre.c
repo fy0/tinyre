@@ -14,42 +14,60 @@
 #include "tdebug.h"
 
 void tre_err(int err_code) {
-    if (err_code == ERR_LEXER_UNBALANCED_PARENTHESIS) {
-        printf_u8("input error: unbalanced parenthesis.\n");
-    } else if (err_code == ERR_LEXER_UNEXPECTED_END_OF_PATTERN) {
-        printf_u8("input error: unexpected end of pattern.\n");
-    } else if (err_code == ERR_LEXER_UNKNOW_SPECIFIER) {
-        printf_u8("input error: unknown specifier.\n");
-    } else if (err_code == ERR_LEXER_BAD_GROUP_NAME) {
-        printf_u8("input error: bad group name\n");
-    } else if (err_code == ERR_LEXER_UNICODE_ESCAPE) {
-        printf_u8("input error: unicode escape failed, requires 4 chars(\\u0000).\n");
-    } else if (err_code == ERR_LEXER_UNICODE6_ESCAPE) {
-        printf_u8("input error: unicode escape failed, requires 8 chars(\\u00000000).\n");
-    } else if (err_code == ERR_LEXER_HEX_ESCAPE) {
-        printf_u8("input error: hex escape failed, requires 2 chars(\\x00).\n");
-    } else if (err_code == ERR_LEXER_BAD_GROUP_NAME_IN_BACKREF) {
-        printf_u8("input error: bad group name in backref\n");
-    } else if (err_code == ERR_LEXER_INVALID_GROUP_NAME_OR_INDEX) {
-        printf_u8("input error: invalid group name or index\n");
-    } else if (err_code == ERR_LEXER_REDEFINITION_OF_GROUP_NAME) {
-        printf_u8("input error: redefinition of group name\n");
-    } else if (err_code == ERR_PARSER_REQUIRES_FIXED_WIDTH_PATTERN) {
-        printf_u8("input error: look-behind requires fixed-width pattern\n");
-    } else if (err_code == ERR_PARSER_BAD_CHARACTER_RANGE) {
-        printf_u8("input error: bad character range\n");
-    } else if (err_code == ERR_PARSER_NOTHING_TO_REPEAT) {
-        printf_u8("input error: nothing to repeat\n");
-    } else if (err_code == ERR_PARSER_IMPOSSIBLE_TOKEN) {
-        printf_u8("input error: impossible token\n");
-    } else if (err_code == ERR_PARSER_UNKNOWN_GROUP_NAME) {
-        printf_u8("input error: unknow group name\n");
-    } else if (err_code == ERR_PARSER_CONDITIONAL_BACKREF) {
-        printf_u8("input error: conditional backref with more than two branches\n");
-    } else if (err_code == ERR_PARSER_INVALID_GROUP_INDEX) {
-        printf_u8("input error: invalid group index in conditional backref\n");
-    } else {
-        printf_u8("parsering falied!!!\n");
+    switch (err_code) {
+        case ERR_LEXER_UNBALANCED_PARENTHESIS:
+            printf_u8("input error: unbalanced parenthesis.\n");
+            break;
+        case ERR_LEXER_UNEXPECTED_END_OF_PATTERN:
+            printf_u8("input error: unexpected end of pattern.\n");
+            break;
+        case ERR_LEXER_UNKNOW_SPECIFIER:
+            printf_u8("input error: unknown specifier.\n");
+            break;
+        case ERR_LEXER_BAD_GROUP_NAME:
+            printf_u8("input error: bad group name\n");
+            break;
+        case ERR_LEXER_UNICODE_ESCAPE:
+            printf_u8("input error: unicode escape failed, requires 4 chars(\\u0000).\n");
+            break;
+        case ERR_LEXER_UNICODE6_ESCAPE:
+            printf_u8("input error: unicode escape failed, requires 8 chars(\\u00000000).\n");
+            break;
+        case ERR_LEXER_HEX_ESCAPE:
+            printf_u8("input error: hex escape failed, requires 2 chars(\\x00).\n");
+            break;
+        case ERR_LEXER_BAD_GROUP_NAME_IN_BACKREF:
+            printf_u8("input error: bad group name in backref\n");
+            break;
+        case ERR_LEXER_INVALID_GROUP_NAME_OR_INDEX:
+            printf_u8("input error: invalid group name or index\n");
+            break;
+        case ERR_LEXER_REDEFINITION_OF_GROUP_NAME:
+            printf_u8("input error: redefinition of group name\n");
+            break;
+        case ERR_PARSER_REQUIRES_FIXED_WIDTH_PATTERN:
+            printf_u8("input error: look-behind requires fixed-width pattern\n");
+            break;
+        case ERR_PARSER_BAD_CHARACTER_RANGE:
+            printf_u8("input error: bad character range\n");
+            break;
+        case ERR_PARSER_NOTHING_TO_REPEAT:
+            printf_u8("input error: nothing to repeat\n");
+            break;
+        case ERR_PARSER_IMPOSSIBLE_TOKEN:
+            printf_u8("input error: impossible token\n");
+            break;
+        case ERR_PARSER_UNKNOWN_GROUP_NAME:
+            printf_u8("input error: unknow group name\n");
+            break;
+        case ERR_PARSER_CONDITIONAL_BACKREF:
+            printf_u8("input error: conditional backref with more than two branches\n");
+            break;
+        case ERR_PARSER_INVALID_GROUP_INDEX:
+            printf_u8("input error: invalid group index in conditional backref\n");
+            break;
+        default:
+            printf_u8("parsering falied!!!\n");
     }
 }
 
@@ -86,7 +104,7 @@ tre_Match* tre_match(tre_Pattern* tp, const char* str, int backtrack_limit)
 {
     VMState* vms = vm_init(tp, str, backtrack_limit);
     tre_GroupResult* groups = vm_exec(vms);
-    tre_Match* match = _new(tre_Match, 1);
+    tre_Match* match = tre_new(tre_Match, 1);
     match->groupnum = vms->group_num;
     match->groups = groups;
     match->str = vms->input_str;

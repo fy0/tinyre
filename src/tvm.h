@@ -4,22 +4,22 @@
 
 #include "tinyre.h"
 
-#define ins_cmp                   1
-#define ins_cmp_spe               2
-#define ins_cmp_multi             3
-#define ins_ncmp_multi            4
-#define ins_cmp_backref           5
-#define ins_cmp_group             6
+#define INS_CMP                   1
+#define INS_CMP_SPE               2
+#define INS_CMP_MULTI             3
+#define INS_NCMP_MULTI            4
+#define INS_CMP_BACKREF           5
+#define INS_CMP_GROUP             6
+#define INS_GROUP_END             7
 
-#define ins_check_point           20
-#define ins_check_point_no_greed  21
-#define ins_save_snap             22
-#define ins_jmp                   23
+#define INS_CHECK_POINT           8
+#define INS_CHECK_POINT_NO_GREED  9
+#define INS_SAVE_SNAP             10
+#define INS_JMP                   11
 
-#define ins_match_start           30
-#define ins_match_end             31
+#define INS_MATCH_START           12
+#define INS_MATCH_END             13
 
-#define ins_group_end             10
 
 
 typedef struct MatchRepeat {
@@ -78,7 +78,7 @@ typedef struct VMState {
 
 VMState* vm_init(tre_Pattern* groups, const char* input_str, int backtrack_limit);
 
-int vm_step(VMState* vms);
+//int vm_step(VMState* vms);
 void vm_free(VMState* vms);
 tre_GroupResult* vm_exec(VMState* vms);
 
