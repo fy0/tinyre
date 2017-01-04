@@ -530,7 +530,7 @@ tre_GroupResult* vm_exec(VMState* vms) {
                 ret = do_ins_cmp(vms);
                 break;
             case INS_CMP_SPE:
-                ret = do_ins_cmp(vms);
+                ret = do_ins_cmp_spe(vms);
                 break;
             case INS_CMP_MULTI:
                 ret = do_ins_cmp_multi(vms, false);
@@ -548,8 +548,8 @@ tre_GroupResult* vm_exec(VMState* vms) {
             // ===================================
             case INS_CMP_GROUP:
                 ret = do_ins_cmp_group(vms);
-                //snap->codes += ret;
-                goto _ret_chk;
+                ret = ret ? ret : try_backtracking(vms);
+                goto _loop_end_chk;
             case INS_CHECK_POINT:
                 ret = do_ins_checkpoint(vms, true);
                 goto _loop_end_chk;
@@ -586,7 +586,7 @@ tre_GroupResult* vm_exec(VMState* vms) {
         }
 
         if (ret) {
-            if (cur_ins != INS_GROUP_END) vm_input_next(vms);
+            if (cur_ins < INS_CMP_GROUP) vm_input_next(vms);
             // match again when a? a+ a* a{x,y}
             if (snap->mr.enable) {
                 bool greed = snap->mr.enable == 1 ? true : false;
@@ -625,9 +625,9 @@ tre_GroupResult* vm_exec(VMState* vms) {
             } else {
                 snap->codes += ret;
             }
+        } else {
+            ret = try_backtracking(vms);
         }
-_ret_chk:
-        ret = ret ? ret : try_backtracking(vms);
 _loop_end_chk:
         if (ret <= 0) break;
     }
