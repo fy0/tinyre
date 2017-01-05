@@ -462,14 +462,14 @@ int do_ins_save_snap(VMState* vms) {
 
 
 uint32_t* u8str_to_u32str(const char* p, int* len) {
-    int *ret, *p2;
+    uint32_t *ret, *p2;
     int i, code, slen = utf8_len(p);
 
-    ret = p2 = tre_new(int, slen + 1);
+    ret = p2 = tre_new(uint32_t, slen + 1);
 
     for (i = 0; i < slen; i++) {
         p = utf8_decode(p, &code);
-        *p2++ = code;
+        *p2++ = (uint32_t)code;
     }
 
     *len = slen;

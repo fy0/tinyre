@@ -19,24 +19,9 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <math.h>
+#include <wchar.h>
 
 #define tre_new(__obj_type, __size) (__obj_type*)malloc((sizeof(__obj_type)*(__size)))
-
-static void putcode(uint32_t code) {
-    if (code < 0xff) {
-        putchar((char)code);
-    } else {
-        char* ret = ucs4_to_utf8(code);
-        printf_u8("%s", ret);
-        free(ret);
-    }
-}
-
-static void output_str(uint32_t *str, int len) {
-    for (int i = 0; i < len; ++i) {
-        putcode(str[i]);
-    }
-}
 
 typedef struct tre_Stack {
     void* data;

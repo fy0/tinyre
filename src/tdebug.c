@@ -1,8 +1,26 @@
 ﻿
+#include "tvm.h"
 #include "tutils.h"
 #include "tlexer.h"
 #include "tparser.h"
-#include "tvm.h"
+#include "tdebug.h"
+
+void putcode(uint32_t code) {
+    //putwchar((wchar_t)code);
+    if (code < 0xff) {
+        putchar((char)code);
+    } else {
+        char* ret = ucs4_to_utf8(code);
+        printf_u8("%s", ret);
+        free(ret);
+    }
+}
+
+void output_str(uint32_t *str, int len) {
+    for (int i = 0; i < len; ++i) {
+        putcode(str[i]);
+    }
+}
 
 void debug_token_print(tre_Lexer *lex) {
     int err;

@@ -3,6 +3,7 @@
 #define TINYRE_VM_H
 
 #include "tinyre.h"
+#include "tutils.h"
 
 #define INS_CMP                   1
 #define INS_CMP_SPE               2

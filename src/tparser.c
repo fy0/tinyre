@@ -88,7 +88,7 @@ bool parser_char_set(tre_Parser *ps) {
     paser_accept(tk->value == ']');
     tre_lexer_next(ps->lex);
 
-    data = (int*)ps->m_cur->codes->data;
+    data = (uint32_t*)ps->m_cur->codes->data;
     *(data++) = num;
 
     ps->m_cur->codes->next = tre_new(INS_List, 1);

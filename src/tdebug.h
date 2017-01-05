@@ -9,6 +9,9 @@
 struct tre_Token;
 struct ParserMatchGroup;
 
+void putcode(uint32_t code);
+void output_str(uint32_t *str, int len);
+
 void debug_token_print(tre_Lexer *lexer);
 void debug_ins_list_print(struct ParserMatchGroup* groups);
 

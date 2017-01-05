@@ -95,14 +95,14 @@ char* ucs4_to_utf8(int code) {
 }
 
 uint32_t* utf8_to_ucs4_str(const char *s, int *plen) {
-    uint32_t code;
+    int code;
     const char *p = s;
     int len = utf8_len(s);
     uint32_t *buf = malloc((len+1) * sizeof(uint32_t));
 
     for (int i = 0; i < len;++i) {
         p = utf8_decode(p, &code);
-        buf[i] = code;
+        buf[i] = (uint32_t)code;
     }
 
     buf[len] = '\0';

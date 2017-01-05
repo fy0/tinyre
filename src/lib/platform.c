@@ -23,9 +23,6 @@ wchar_t* _utf8_to_16(const char* str) {
 
 void printf_u8(const char *fmt, ...) {
 #if defined(PLATFORM_WINDOWS)
-    // 在 windows 控制台输出一个 utf8 字符串，代价巨大
-    // 同时我并不理解 MSVC 的思路，不知道如何同时使用 UTF-8 no bom 编码文件同时正常输出utf8
-    // 只有妥协
     int size;
 
     va_list args;
@@ -53,7 +50,6 @@ void printf_u8(const char *fmt, ...) {
 }
 
 void platform_init() {
-#ifdef PLATFORM_WINDOWS
     setlocale(LC_CTYPE, "");
-#endif
 }
+
